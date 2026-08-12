@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   bigserial,
+  boolean,
   check,
   doublePrecision,
   index,
@@ -156,6 +157,15 @@ export const routeLegs = pgTable(
     durationS: integer('duration_s').notNull(),
     /** Encoded polyline, precision 6. Compact enough for a 250-stop trip. */
     geometry: text('geometry').notNull(),
+    /**
+     * True when no road connects these two points, so the leg is shown as a
+     * flight: straight line, great-circle distance, `duration_s` 0.
+     *
+     * Cached like any other leg on purpose — an unroutable pair costs the
+     * bisection search once, then reads from here. Without this the search
+     * would repeat on every summary of every trip crossing an ocean.
+     */
+    isFlight: boolean('is_flight').notNull().default(false),
     fetchedAt: timestamp('fetched_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

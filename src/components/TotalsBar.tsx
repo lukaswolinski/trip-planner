@@ -17,12 +17,23 @@ interface Props {
 
 export default function TotalsBar({ summary, unit, onToggleUnit, stale }: Props) {
   const age = formatEstimateAge(summary?.estimateAgeDays ?? null);
+  const hasFlights = (summary?.flightLegCount ?? 0) > 0;
 
   return (
     <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1 rounded-lg border border-black/10 bg-black/[0.02] px-4 py-3 dark:border-white/15 dark:bg-white/[0.04]">
+      {/*
+        Labelled "Driving distance" only when a flight is present, so the
+        wording stays plain on ordinary trips but becomes precise exactly when
+        the distinction starts to matter.
+      */}
       <Stat
-        label="Total distance"
+        label={hasFlights ? 'Driving distance' : 'Total distance'}
         value={summary ? formatDistance(summary.totalDistanceM, unit) : '—'}
+        title={
+          hasFlights
+            ? 'Ground travel only. Flight legs are listed separately.'
+            : undefined
+        }
         stale={stale}
       />
       <Stat
@@ -31,6 +42,14 @@ export default function TotalsBar({ summary, unit, onToggleUnit, stale }: Props)
         title={ESTIMATE_TOOLTIP}
         stale={stale}
       />
+      {hasFlights && summary ? (
+        <Stat
+          label={summary.flightLegCount === 1 ? 'Flight' : 'Flights'}
+          value={`${summary.flightLegCount} · ${formatDistance(summary.totalFlightDistanceM, unit)}`}
+          title="Legs with no road connection. Distance is straight-line; no travel time is included in the total."
+          stale={stale}
+        />
+      ) : null}
       <Stat
         label="Stops"
         value={summary ? formatStopCount(summary.stopCount) : '—'}

@@ -68,7 +68,22 @@ export function testDialect(maxLegsPerRequest: number): RouteDialect {
  * its end, so stitched geometry can be checked for contiguity.
  */
 export function makeFakeTransport(
-  opts: { metresPerLeg?: number; secondsPerLeg?: number } = {},
+  opts: {
+    metresPerLeg?: number;
+    secondsPerLeg?: number;
+    /**
+     * True for a coordinate pair with no road between them. The whole request
+     * then fails with `NoRoute`, exactly as OSRM does — it never says which pair
+     * was at fault, which is why the router has to bisect.
+     */
+    unroutable?: (a: LngLat, b: LngLat) => boolean;
+    /**
+     * Where the provider claims it snapped a coordinate. Defaults to the exact
+     * input. Used to reproduce the far worse failure: a confident `Ok` after
+     * silently relocating a coordinate to another continent.
+     */
+    snap?: (coord: LngLat) => LngLat;
+  } = {},
 ): FakeTransport {
   const metresPerLeg = opts.metresPerLeg ?? 100_000;
   const secondsPerLeg = opts.secondsPerLeg ?? 3_600;
@@ -82,6 +97,21 @@ export function makeFakeTransport(
       legCount: coords.length - 1,
       query,
     });
+
+    if (opts.unroutable) {
+      for (let i = 0; i < coords.length - 1; i++) {
+        if (opts.unroutable(coords[i], coords[i + 1])) {
+          return {
+            code: 'NoRoute',
+            message: 'Impossible route between points',
+          } satisfies DirectionsResponse;
+        }
+      }
+    }
+
+    const waypoints = coords.map((c) => ({
+      location: (opts.snap ? opts.snap(c) : c) as [number, number],
+    }));
 
     const legs = [];
     for (let i = 0; i < coords.length - 1; i++) {
@@ -100,6 +130,7 @@ export function makeFakeTransport(
 
     return {
       code: 'Ok',
+      waypoints,
       routes: [
         {
           distance: metresPerLeg * legs.length,

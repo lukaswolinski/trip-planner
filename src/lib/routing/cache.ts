@@ -19,6 +19,8 @@ export interface CachedLeg {
   durationS: number;
   geometry: string;
   fetchedAt: Date;
+  /** See LegResult.isFlight — an unroutable pair, cached so it is found once. */
+  isFlight?: boolean;
 }
 
 export interface LegCache {
@@ -73,6 +75,7 @@ export function createDbLegCache(
           distanceM: routeLegs.distanceM,
           durationS: routeLegs.durationS,
           geometry: routeLegs.geometry,
+          isFlight: routeLegs.isFlight,
           fetchedAt: routeLegs.fetchedAt,
         })
         .from(routeLegs)
@@ -93,6 +96,7 @@ export function createDbLegCache(
           distanceM: row.distanceM,
           durationS: row.durationS,
           geometry: row.geometry,
+          isFlight: row.isFlight,
           fetchedAt: row.fetchedAt,
         });
       }
@@ -121,6 +125,7 @@ export function createDbLegCache(
             distanceM: leg.distanceM,
             durationS: leg.durationS,
             geometry: leg.geometry,
+            isFlight: leg.isFlight ?? false,
             fetchedAt: now,
           })),
         )
@@ -136,6 +141,7 @@ export function createDbLegCache(
             distanceM: sql`excluded.distance_m`,
             durationS: sql`excluded.duration_s`,
             geometry: sql`excluded.geometry`,
+            isFlight: sql`excluded.is_flight`,
             fetchedAt: sql`excluded.fetched_at`,
           },
         });
@@ -165,6 +171,7 @@ export function createMemoryLegCache(
           distanceM: leg.distanceM,
           durationS: leg.durationS,
           geometry: leg.geometry,
+          isFlight: leg.isFlight ?? false,
           fetchedAt: now,
         });
       }

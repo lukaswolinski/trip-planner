@@ -1,0 +1,1 @@
+ALTER TABLE "route_legs" ADD COLUMN "is_flight" boolean DEFAULT false NOT NULL;

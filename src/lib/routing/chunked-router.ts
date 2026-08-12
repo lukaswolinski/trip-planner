@@ -18,17 +18,28 @@
  * per-leg `steps[].geometry`.
  */
 
-import type { TravelProfile } from '@/lib/limits';
+import { MAX_SNAP_DISPLACEMENT_M, type TravelProfile } from '@/lib/limits';
+import { flightLine, haversineMeters, type Point } from '@/lib/geo';
 import {
   decodePolyline,
   encodePolyline,
   joinPointSequences,
   type LngLat,
 } from '@/lib/polyline';
-import { legKeyId, type LegKey } from './legs';
+import { legKeyId, runToCoordinates, type LegKey, type RoundedCoord } from './legs';
 
 export interface DirectionsStep {
   geometry?: string;
+}
+
+/**
+ * Where the provider snapped one requested coordinate, as [lng, lat].
+ *
+ * Both OSRM and Mapbox return this, and it is the only reliable way to detect
+ * an unroutable leg — see MAX_SNAP_DISPLACEMENT_M.
+ */
+export interface DirectionsWaypoint {
+  location?: [number, number];
 }
 
 export interface DirectionsLeg {
@@ -48,6 +59,7 @@ export interface DirectionsResponse {
   code?: string;
   message?: string;
   routes?: DirectionsRoute[];
+  waypoints?: DirectionsWaypoint[];
 }
 
 /** A single routed leg, ready to be cached. */
@@ -57,6 +69,14 @@ export interface LegResult {
   durationS: number;
   /** polyline6 covering just this leg. */
   geometry: string;
+  /**
+   * True when no road connects these two stops, so this is shown as a flight:
+   * straight line, great-circle distance, and no travel time.
+   *
+   * Cached like any other leg, which matters — it means an unroutable pair is
+   * discovered once, not re-attempted on every summary.
+   */
+  isFlight?: boolean;
 }
 
 /**
@@ -101,6 +121,65 @@ export function chunkRun(run: readonly LegKey[], maxLegs: number): LegKey[][] {
   return chunks;
 }
 
+function toPoint(coord: RoundedCoord): Point {
+  return { lat: Number(coord.lat), lng: Number(coord.lng) };
+}
+
+/**
+ * A leg with no road connection: great-circle distance, a two-point straight
+ * line, and explicitly **no duration**.
+ *
+ * Duration is 0 rather than a guess. We know the distance precisely and the
+ * travel time not at all, and inventing a flight time (which would depend on
+ * schedules, layovers and airports we know nothing about) would be a fabricated
+ * number sitting in a total that otherwise means something.
+ */
+export function flightLegResult(key: LegKey): LegResult {
+  const from = toPoint(key.from);
+  const to = toPoint(key.to);
+  return {
+    key,
+    distanceM: Math.round(haversineMeters(from, to)),
+    durationS: 0,
+    geometry: encodePolyline(flightLine(from, to)),
+    isFlight: true,
+  };
+}
+
+/**
+ * Indices of requested coordinates the provider moved implausibly far.
+ *
+ * A provider that cannot reach a coordinate does not necessarily say so: OSRM
+ * picks the nearest snap candidate *reachable from the origin*, which for a
+ * transatlantic request meant answering "Ok" after quietly relocating New York
+ * to Portugal. Comparing what we asked for against `waypoints[].location` is
+ * what catches that.
+ *
+ * Returns an empty set when the provider omits `waypoints`, so a provider that
+ * does not report snapping degrades to error-code detection alone rather than
+ * flagging everything.
+ */
+export function displacedWaypoints(
+  chunk: readonly LegKey[],
+  response: DirectionsResponse,
+  maxDisplacementM: number = MAX_SNAP_DISPLACEMENT_M,
+): Set<number> {
+  const displaced = new Set<number>();
+  const waypoints = response.waypoints;
+  if (!waypoints?.length) return displaced;
+
+  const requested = runToCoordinates(chunk);
+  for (let i = 0; i < requested.length; i++) {
+    const location = waypoints[i]?.location;
+    if (!location) continue;
+    const [lng, lat] = location;
+    if (haversineMeters(toPoint(requested[i]), { lat, lng }) > maxDisplacementM) {
+      displaced.add(i);
+    }
+  }
+  return displaced;
+}
+
 /** Concatenates a leg's step geometries into one polyline6 string. */
 export function legGeometry(leg: DirectionsLeg): string {
   const sequences: LngLat[][] = (leg.steps ?? [])
@@ -110,10 +189,42 @@ export function legGeometry(leg: DirectionsLeg): string {
   return encodePolyline(joinPointSequences(sequences));
 }
 
+/** Response codes that mean "these points cannot be connected by road". */
+const NO_ROUTE_CODES = new Set(['NoRoute', 'NoSegment', 'NoMatch']);
+
 export function createChunkedRouter(
   dialect: RouteDialect,
   transport: DirectionsTransport,
 ): Router {
+  /**
+   * Fetches one chunk, isolating unroutable legs by bisection.
+   *
+   * When a provider rejects a whole request with `NoRoute` it does not say
+   * *which* pair broke it, so a 99-leg chunk containing one ocean crossing
+   * fails entirely. Halving the chunk and retrying narrows it down in about
+   * 2·log₂(n) requests — roughly 14 for a full chunk — and only on the rare
+   * path where something is genuinely unroutable. Retrying leg-by-leg instead
+   * would cost 99 requests against a one-per-second courtesy limit.
+   */
+  async function fetchChunk(chunk: readonly LegKey[]): Promise<LegResult[]> {
+    try {
+      const response = await transport(dialect.buildPath(chunk));
+      return mapChunkResponse(chunk, response);
+    } catch (error) {
+      const refused =
+        error instanceof RoutingProviderError && NO_ROUTE_CODES.has(error.code);
+      if (!refused) throw error;
+
+      // Down to one leg, so the refusal is unambiguous: this pair has no road
+      // between it. Show it as a flight rather than failing the whole trip.
+      if (chunk.length === 1) return [flightLegResult(chunk[0])];
+
+      const mid = Math.ceil(chunk.length / 2);
+      const [left, right] = [chunk.slice(0, mid), chunk.slice(mid)];
+      return [...(await fetchChunk(left)), ...(await fetchChunk(right))];
+    }
+  }
+
   return {
     async fetchRuns(runs) {
       const results: LegResult[] = [];
@@ -131,8 +242,7 @@ export function createChunkedRouter(
         }
 
         for (const chunk of chunkRun(run, dialect.maxLegsPerRequest)) {
-          const response = await transport(dialect.buildPath(chunk));
-          results.push(...mapChunkResponse(chunk, response));
+          results.push(...(await fetchChunk(chunk)));
         }
       }
 
@@ -151,6 +261,7 @@ export function createChunkedRouter(
 export function mapChunkResponse(
   chunk: readonly LegKey[],
   response: DirectionsResponse,
+  maxDisplacementM: number = MAX_SNAP_DISPLACEMENT_M,
 ): LegResult[] {
   if (response.code && response.code !== 'Ok') {
     throw new RoutingProviderError(
@@ -171,7 +282,13 @@ export function mapChunkResponse(
     );
   }
 
+  // A coordinate the provider relocated makes both legs touching it fiction —
+  // but legs between two properly-snapped coordinates are still genuine, so
+  // only the affected legs become flights.
+  const displaced = displacedWaypoints(chunk, response, maxDisplacementM);
+
   return chunk.map((key, i) => {
+    if (displaced.has(i) || displaced.has(i + 1)) return flightLegResult(key);
     const leg = route.legs[i];
     return {
       key,

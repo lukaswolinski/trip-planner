@@ -235,14 +235,19 @@ describe('totals and geometry', () => {
 
     const summary = await buildTripSummary(stops, 'driving', { cache, router });
 
-    expect(summary.geometry.length).toBeGreaterThan(60);
-    expect(summary.geometry[0][1]).toBeCloseTo(39, 5);
-    expect(summary.geometry[summary.geometry.length - 1][1]).toBeCloseTo(39 + 59 * 0.1, 5);
+    // A fully drivable trip is one unbroken run; only a flight leg splits it.
+    expect(summary.roadSegments).toHaveLength(1);
+    expect(summary.flightSegments).toEqual([]);
+
+    const line = summary.roadSegments[0];
+    expect(line.length).toBeGreaterThan(60);
+    expect(line[0][1]).toBeCloseTo(39, 5);
+    expect(line[line.length - 1][1]).toBeCloseTo(39 + 59 * 0.1, 5);
 
     // No duplicated seam points anywhere in the stitched line.
-    for (let i = 1; i < summary.geometry.length; i++) {
-      const prev = summary.geometry[i - 1];
-      const cur = summary.geometry[i];
+    for (let i = 1; i < line.length; i++) {
+      const prev = line[i - 1];
+      const cur = line[i];
       expect(prev[0] === cur[0] && prev[1] === cur[1]).toBe(false);
     }
   });
@@ -254,7 +259,8 @@ describe('totals and geometry', () => {
     expect(summary.legs).toEqual([]);
     expect(summary.totalDistanceM).toBe(0);
     expect(summary.estimatesFetchedAt).toBeNull();
-    expect(summary.geometry).toEqual([]);
+    expect(summary.roadSegments).toEqual([]);
+    expect(summary.flightSegments).toEqual([]);
   });
 
   it('routes a mixed driving/walking trip as separate single-profile requests', async () => {

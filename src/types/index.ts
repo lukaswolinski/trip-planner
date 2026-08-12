@@ -45,16 +45,23 @@ export interface SummaryLegDto {
   durationS: number;
   geometry: string;
   fetchedAt: string;
+  /** No road connects these stops: great-circle distance, no travel time. */
+  isFlight: boolean;
 }
 
 export interface SummaryDto {
   legs: SummaryLegDto[];
+  /** Ground travel only — flights are reported in totalFlightDistanceM. */
   totalDistanceM: number;
   totalDurationS: number;
   totalNights: number;
   stopCount: number;
-  /** [lng, lat] pairs, GeoJSON order. */
-  geometry: [number, number][];
+  /** Continuous drivable runs, [lng, lat] pairs in GeoJSON order. */
+  roadSegments: [number, number][][];
+  /** One straight two-point line per flight leg. */
+  flightSegments: [number, number][][];
+  flightLegCount: number;
+  totalFlightDistanceM: number;
   estimatesFetchedAt: string | null;
   legCount: number;
   fetchedLegCount: number;

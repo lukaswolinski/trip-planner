@@ -35,6 +35,28 @@ worth preserving:
 dependency-injected — no DB, network, or env. That's why the whole differentiator
 is testable with no credentials. Keep it that way.
 
+## Flight legs: OSRM lies about unroutable pairs
+
+A leg with no road becomes a **flight leg** — great-circle distance, `durationS`
+0, a two-point straight line, drawn dashed — instead of failing the trip.
+
+**Detection cannot rely on the error code.** Verified live: Paris → New York
+returns `code: "Ok"` and a confident 1777 km, because OSRM snaps each coordinate
+to the nearest node *reachable from the origin* and had quietly relocated New
+York to a road near Lisbon, 5391 km away. The signal is
+`waypoints[].location`: a snap beyond `MAX_SNAP_DISPLACEMENT_M` (200 km) means
+the answer is fiction. Genuine routes snap 0.0–0.1 km.
+
+OSRM *also* returns `NoRoute` for some multi-point chains without saying which
+pair failed, so `createChunkedRouter` bisects the chunk to isolate it
+(~2·log₂(n) requests, only on that path). Flight verdicts are cached in
+`route_legs.is_flight`, so an ocean is discovered once, not per summary.
+
+Totals stay separate: `totalDistanceM`/`totalDurationS` are ground travel only,
+with `flightLegCount`/`totalFlightDistanceM` alongside. Geometry is
+`roadSegments[]` + `flightSegments[]`, never one stitched line — stitching
+across the gap draws a road that does not exist.
+
 ## Provider interface
 
 Routing and geocoding are chosen **independently** via `ROUTING_PROVIDER`
@@ -109,6 +131,14 @@ given the cache; not a hard global guarantee.
 - **Route fixtures must come from a real route's geometry.** Arbitrary
   coordinates land off-road and the car profile correctly snaps to unpaved
   tracks — synthetic fixtures averaged 23 km/h versus 83 km/h on the highway.
+- **`map.isStyleLoaded()` is not a readiness gate.** It stays false while
+  sprites and glyphs load, long after `addSource` would succeed, and
+  `styledata` may already have fired for the last time — so geometry arriving
+  in that window was dropped and never retried, leaving no route and no error.
+  Defer to `map.once('idle', …)` instead of discarding.
+- **A MapLibre GeoJSON source's `_data` is `{ geojson: FeatureCollection }`.**
+  `source._data.features` is `undefined`; use `source.serialize().data`. A
+  browser check reading the wrong one reports 0 features for a working map.
 - Theme: `data-theme` on `<html>` drives every Tailwind `dark:` class via a
   `@custom-variant` in `globals.css`, plus the map basemap.
 - 18 of 126 tests need `DATABASE_URL` and **a dedicated test database** —

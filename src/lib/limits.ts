@@ -34,6 +34,32 @@ export const MAX_LEGS_PER_REQUEST = MAPBOX_MAX_COORDS_PER_REQUEST - 1;
 /** Coordinates are rounded to 5dp (~1.1 m) to form cache keys. */
 export const COORD_PRECISION = 5;
 
+/**
+ * How far a routing provider may move a coordinate when snapping it to the road
+ * network before we stop believing the result.
+ *
+ * This is the load-bearing number for flight-leg detection, and it exists
+ * because OSRM does not report "no route" for a transatlantic leg. Measured
+ * against the live demo server:
+ *
+ * | request                | snap displacement | verdict          |
+ * | ---------------------- | ----------------- | ---------------- |
+ * | Paris → Berlin         |   0.0–0.1 km      | genuine route    |
+ * | New York → Boston      |   0.1 km          | genuine route    |
+ * | Paris → **New York**   | **5391 km**       | fiction          |
+ *
+ * That last one returned `code: "Ok"` and a confident 1777 km, because OSRM
+ * prefers a snap candidate reachable from the origin — so it silently
+ * substituted a road near Lisbon for New York. Trusting the response code alone
+ * would show a plausible wrong number, which is worse than an error.
+ *
+ * 200 km is far beyond any legitimate snap (a stop on a small island or in a
+ * pedestrian zone moves single-digit kilometres at most) and far below the
+ * thousands of kilometres a continental substitution produces, so there is no
+ * realistic case sitting near the boundary.
+ */
+export const MAX_SNAP_DISPLACEMENT_M = 200_000;
+
 export const TIERS = ['free', 'pro'] as const;
 export type Tier = (typeof TIERS)[number];
 

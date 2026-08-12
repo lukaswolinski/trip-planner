@@ -123,7 +123,8 @@ export default function ReadOnlyTrip({ title, stops, summary, partial }: Props) 
 
         <TripMap
           stops={stops.map((s) => ({ id: s.id, name: s.name, lat: s.lat, lng: s.lng }))}
-          geometry={summary.geometry}
+          roadSegments={summary.roadSegments}
+          flightSegments={summary.flightSegments}
           className="h-[26rem] w-full rounded-lg lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)]"
         />
       </div>

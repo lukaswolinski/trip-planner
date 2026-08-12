@@ -23,8 +23,10 @@ export interface MapStop {
 
 interface Props {
   stops: readonly MapStop[];
-  /** Stitched trip line in [lng, lat] order. */
-  geometry: readonly [number, number][];
+  /** Continuous drivable runs, [lng, lat] order. */
+  roadSegments: readonly (readonly [number, number][])[];
+  /** Straight two-point lines for legs with no road connection. */
+  flightSegments: readonly (readonly [number, number][])[];
   /**
    * Called when a selected marker is dragged to a new position. Omit to make
    * markers fixed — the read-only share page does.
@@ -38,6 +40,8 @@ interface Props {
 const ROUTE_SOURCE = 'trip-route';
 const ROUTE_CASING_LAYER = 'trip-route-casing';
 const ROUTE_LINE_LAYER = 'trip-route-line';
+const FLIGHT_SOURCE = 'trip-flight';
+const FLIGHT_LINE_LAYER = 'trip-flight-line';
 
 /**
  * OpenFreeMap styles, no API key of any kind. `bright` has the most road
@@ -74,6 +78,16 @@ const ROUTE_COLORS = {
   dark: { line: '#7dd3fc', casing: '#0a1020' },
 } as const;
 
+/**
+ * Flights are drawn in a different hue as well as dashed, so they stay
+ * distinguishable when the line is too short for the dash pattern to read and
+ * for anyone who cannot easily tell the two line styles apart.
+ */
+const FLIGHT_COLORS = {
+  light: '#c2410c',
+  dark: '#fdba74',
+} as const;
+
 const MARKER_BASE =
   'flex h-7 w-7 items-center justify-center rounded-full border-2 text-xs font-semibold ' +
   'text-white shadow-md transition-transform';
@@ -105,20 +119,21 @@ type RouteData = {
  * invalid GeoJSON (a LineString needs at least two positions). A
  * FeatureCollection with zero features is unambiguously valid, so the source can
  * always be created safely and simply holds nothing until there is a real route.
+ *
+ * Takes many segments rather than one line because a flight leg breaks the
+ * route into disconnected runs, and each run must be its own feature — a single
+ * LineString through all of them would draw the gap as though it were road.
  */
-function routeData(coordinates: readonly [number, number][]): RouteData {
+function routeData(segments: readonly (readonly [number, number][])[]): RouteData {
   return {
     type: 'FeatureCollection',
-    features:
-      coordinates.length >= 2
-        ? [
-            {
-              type: 'Feature',
-              properties: {},
-              geometry: { type: 'LineString', coordinates: [...coordinates] },
-            },
-          ]
-        : [],
+    features: segments
+      .filter((segment) => segment.length >= 2)
+      .map((segment) => ({
+        type: 'Feature' as const,
+        properties: {},
+        geometry: { type: 'LineString' as const, coordinates: [...segment] },
+      })),
   };
 }
 
@@ -137,10 +152,11 @@ function firstSymbolLayerId(map: MapLibreMap): string | undefined {
  */
 function ensureRoute(
   map: MapLibreMap,
-  coordinates: readonly [number, number][],
+  roadSegments: readonly (readonly [number, number][])[],
+  flightSegments: readonly (readonly [number, number][])[],
   theme: 'light' | 'dark',
 ): void {
-  const data = routeData(coordinates);
+  const data = routeData(roadSegments);
   const colors = ROUTE_COLORS[theme];
 
   const existing = map.getSource(ROUTE_SOURCE) as GeoJSONSource | undefined;
@@ -148,6 +164,14 @@ function ensureRoute(
     existing.setData(data);
   } else {
     map.addSource(ROUTE_SOURCE, { type: 'geojson', data });
+  }
+
+  const flightData = routeData(flightSegments);
+  const existingFlight = map.getSource(FLIGHT_SOURCE) as GeoJSONSource | undefined;
+  if (existingFlight) {
+    existingFlight.setData(flightData);
+  } else {
+    map.addSource(FLIGHT_SOURCE, { type: 'geojson', data: flightData });
   }
 
   const beforeId = firstSymbolLayerId(map);
@@ -188,6 +212,29 @@ function ensureRoute(
   } else {
     map.setPaintProperty(ROUTE_LINE_LAYER, 'line-color', colors.line);
   }
+
+  // No casing on flights: the casing exists to lift a road off the basemap, and
+  // a dashed line with a solid halo reads as a road with gaps rather than as a
+  // deliberately different kind of connection.
+  if (!map.getLayer(FLIGHT_LINE_LAYER)) {
+    map.addLayer(
+      {
+        id: FLIGHT_LINE_LAYER,
+        type: 'line',
+        source: FLIGHT_SOURCE,
+        layout: { 'line-cap': 'butt', 'line-join': 'round' },
+        paint: {
+          'line-color': FLIGHT_COLORS[theme],
+          'line-opacity': 0.95,
+          'line-dasharray': [2, 2],
+          'line-width': ['interpolate', ['linear'], ['zoom'], 4, 2, 8, 3, 12, 4, 16, 5],
+        },
+      },
+      beforeId,
+    );
+  } else {
+    map.setPaintProperty(FLIGHT_LINE_LAYER, 'line-color', FLIGHT_COLORS[theme]);
+  }
 }
 
 interface MarkerRecord {
@@ -219,7 +266,8 @@ function paintMarker(record: MarkerRecord, name: string, isSelected: boolean): v
 
 export default function TripMap({
   stops,
-  geometry,
+  roadSegments,
+  flightSegments,
   onStopMoved,
   onAddStopAt,
   className,
@@ -251,9 +299,23 @@ export default function TripMap({
 
   // Latest props for use inside map event handlers, which outlive the render
   // that registered them.
-  const latest = useRef({ geometry, theme, stops, onStopMoved, onAddStopAt });
+  const latest = useRef({
+    roadSegments,
+    flightSegments,
+    theme,
+    stops,
+    onStopMoved,
+    onAddStopAt,
+  });
   useEffect(() => {
-    latest.current = { geometry, theme, stops, onStopMoved, onAddStopAt };
+    latest.current = {
+      roadSegments,
+      flightSegments,
+      theme,
+      stops,
+      onStopMoved,
+      onAddStopAt,
+    };
   });
 
   const canDrag = Boolean(onStopMoved);
@@ -288,7 +350,12 @@ export default function TripMap({
     });
 
     instance.on('styledata', () => {
-      ensureRoute(instance, latest.current.geometry, latest.current.theme);
+      ensureRoute(
+        instance,
+        latest.current.roadSegments,
+        latest.current.flightSegments,
+        latest.current.theme,
+      );
     });
 
     // Clicking empty map disarms the selected marker.
@@ -334,11 +401,33 @@ export default function TripMap({
     // Route layers are re-added by the `styledata` handler above.
   }, [mapInstance, theme]);
 
-  // Push new geometry whenever it changes.
+  /**
+   * Push new geometry whenever it changes.
+   *
+   * `isStyleLoaded()` stays false while sprites and glyphs are still loading,
+   * which is long after `addSource` would succeed — so a summary arriving in
+   * that window used to be dropped on the floor and never retried, because
+   * `styledata` had already fired for the last time. The route then simply
+   * never appeared, with no error anywhere. Deferring to the next `idle`
+   * instead of discarding is what makes this reliable rather than a race.
+   */
   useEffect(() => {
     if (!mapInstance) return;
-    if (mapInstance.isStyleLoaded()) ensureRoute(mapInstance, geometry, theme);
-  }, [mapInstance, geometry, theme]);
+
+    const apply = (): void => {
+      ensureRoute(mapInstance, roadSegments, flightSegments, theme);
+    };
+
+    if (mapInstance.isStyleLoaded()) {
+      apply();
+      return;
+    }
+
+    mapInstance.once('idle', apply);
+    return () => {
+      mapInstance.off('idle', apply);
+    };
+  }, [mapInstance, roadSegments, flightSegments, theme]);
 
   /** Identity of the stop set — changes on add, remove and reorder only. */
   const fitKey = useMemo(() => stops.map((s) => s.id).join('|'), [stops]);

@@ -38,6 +38,15 @@ interface Props {
 
 const PATCH_DEBOUNCE_MS = 400;
 
+/**
+ * Module scope so the identity is stable across renders.
+ *
+ * An inline `[]` fallback would be a new array every render, re-running the
+ * map's geometry effect continuously — the same mistake that kept the camera
+ * re-fitting while typing.
+ */
+const EMPTY_SEGMENTS: readonly (readonly [number, number][])[] = [];
+
 export default function TripEditor({
   trip: initialTrip,
   initialStops,
@@ -533,7 +542,8 @@ export default function TripEditor({
       <div className="h-[24rem] shrink-0 border-t border-black/10 lg:h-full lg:min-w-0 lg:flex-1 lg:border-t-0 dark:border-white/10">
         <TripMap
           stops={mapStops}
-          geometry={summary?.geometry ?? []}
+          roadSegments={summary?.roadSegments ?? EMPTY_SEGMENTS}
+          flightSegments={summary?.flightSegments ?? EMPTY_SEGMENTS}
           onStopMoved={moveStop}
           onAddStopAt={addStopAt}
           className="h-full w-full"
