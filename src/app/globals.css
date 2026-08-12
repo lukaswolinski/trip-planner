@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+/*
+ * By default Tailwind's `dark:` variant follows the operating system via
+ * `prefers-color-scheme`, which cannot be overridden from the UI. Redefining it
+ * against a `data-theme` attribute is what lets the in-app Appearance setting
+ * control every `dark:` class in the codebase rather than just one panel.
+ *
+ * `<html>` always carries data-theme="light" or "dark"; a "system" preference is
+ * resolved to one of those before paint.
+ */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root,
+:root[data-theme="light"] {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+:root[data-theme="dark"] {
+  --background: #0b1220;
+  --foreground: #e8eaed;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+}
+
+/* Smooth the switch, but never animate for people who ask not to. */
+@media (prefers-reduced-motion: no-preference) {
+  body {
+    transition:
+      background-color 150ms ease,
+      color 150ms ease;
+  }
+}
+
+/* MapLibre popups inherit the page palette rather than the SDK's default white. */
+.maplibregl-popup-content {
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 0.8125rem;
+  border-radius: 0.5rem;
+}
+
+.maplibregl-popup-anchor-top .maplibregl-popup-tip {
+  border-bottom-color: var(--background);
+}
+
+.maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+  border-top-color: var(--background);
+}
+
+/* Attribution is required for OSM data; keep it legible on both themes. */
+.maplibregl-ctrl-attrib {
+  background: color-mix(in srgb, var(--background) 82%, transparent);
+}
+
+.maplibregl-ctrl-attrib a,
+.maplibregl-ctrl-attrib {
+  color: var(--foreground);
+}
+
+/* The default control chrome is white-on-white in dark mode. */
+:root[data-theme="dark"] .maplibregl-ctrl-group {
+  background: #1b2431;
+}
+
+:root[data-theme="dark"] .maplibregl-ctrl-group button + button {
+  border-top-color: #2c3542;
+}
+
+:root[data-theme="dark"] .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
+
+:root[data-theme="dark"] .maplibregl-ctrl-scale {
+  background: color-mix(in srgb, var(--background) 70%, transparent);
+  border-color: var(--foreground);
+  color: var(--foreground);
+}
