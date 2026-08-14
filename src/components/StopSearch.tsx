@@ -121,7 +121,7 @@ export default function StopSearch({ onPick, near, disabled }: Props) {
         onChange={(event) => setQuery(event.target.value)}
         disabled={disabled}
         placeholder="Add a stop — place name or 38.574, -109.546"
-        className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm outline-none placeholder:text-black/40 focus:border-blue-500 disabled:opacity-50 dark:border-white/20 dark:bg-white/[0.06] dark:placeholder:text-white/40"
+        className="w-full rounded-control border border-line bg-surface px-3 py-2 text-sm outline-none placeholder:text-ink-faint focus:border-accent disabled:opacity-50"
         aria-label="Search for a place, or paste coordinates"
         autoComplete="off"
         onKeyDown={(event) => {
@@ -134,32 +134,32 @@ export default function StopSearch({ onPick, near, disabled }: Props) {
       />
 
       {busy ? (
-        <span className="absolute right-3 top-2.5 text-xs text-black/40 dark:text-white/40">
+        <span className="absolute right-3 top-2.5 text-xs text-ink-faint">
           …
         </span>
       ) : null}
 
       {active && !coords && error ? (
-        <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">{error}</p>
+        <p className="mt-1 text-xs text-ink">{error}</p>
       ) : null}
 
       {coords ? (
-        <ul className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-black/10 bg-white shadow-lg dark:border-white/15 dark:bg-neutral-900">
+        <ul className="absolute z-20 mt-1 w-full overflow-hidden rounded-control border border-line bg-surface shadow-lg">
           <li>
             <button
               type="button"
               onClick={pickCoordinates}
-              className="block w-full px-3 py-2 text-left text-sm hover:bg-blue-50 dark:hover:bg-blue-950/40"
+              className="block w-full px-3 py-2 text-left text-sm hover:bg-accent-soft"
             >
               <span className="flex items-center gap-2">
-                <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-800 dark:bg-blue-900/60 dark:text-blue-200">
+                <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-800">
                   Coordinates
                 </span>
                 <span className="font-medium">
                   {resolvedName ?? formatCoordinates(coords.lat, coords.lng)}
                 </span>
               </span>
-              <span className="mt-0.5 block text-xs text-black/50 dark:text-white/50">
+              <span className="mt-0.5 block text-xs text-ink-muted">
                 {resolvedName ? `${formatCoordinates(coords.lat, coords.lng)} · ` : ''}
                 {coords.swapped
                   ? 'read as longitude, latitude'
@@ -169,7 +169,7 @@ export default function StopSearch({ onPick, near, disabled }: Props) {
           </li>
         </ul>
       ) : active && hits.length > 0 ? (
-        <ul className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-black/10 bg-white shadow-lg dark:border-white/15 dark:bg-neutral-900">
+        <ul className="absolute z-20 mt-1 w-full overflow-hidden rounded-control border border-line bg-surface shadow-lg">
           {hits.map((hit, index) => (
             <li key={`${hit.lng},${hit.lat},${index}`}>
               <button
@@ -179,7 +179,7 @@ export default function StopSearch({ onPick, near, disabled }: Props) {
                   setQuery('');
                   setHits([]);
                 }}
-                className="block w-full px-3 py-2 text-left text-sm hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-accent-soft"
               >
                 <span className="flex items-baseline gap-2">
                   <span className="min-w-0 flex-1 truncate font-medium">{hit.name}</span>
@@ -193,15 +193,15 @@ export default function StopSearch({ onPick, near, disabled }: Props) {
                       hit.tier === 0
                         ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200'
                         : hit.tier === 2
-                          ? 'bg-black/10 text-black/60 dark:bg-white/15 dark:text-white/60'
-                          : 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200'
+                          ? 'bg-inset text-ink-muted'
+                          : 'bg-blue-100 text-blue-800'
                     }`}
                   >
                     {hit.kind}
                   </span>
                 </span>
                 {hit.address ? (
-                  <span className="block truncate text-xs text-black/50 dark:text-white/50">
+                  <span className="block truncate text-xs text-ink-muted">
                     {hit.address}
                   </span>
                 ) : null}

@@ -37,7 +37,7 @@ export default function SettingsPanel({ onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-20"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-inset p-4 pt-20"
       onClick={onClose}
     >
       <div
@@ -46,7 +46,7 @@ export default function SettingsPanel({ onClose }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-title"
-        className="w-full max-w-sm rounded-xl border border-black/10 bg-white p-5 shadow-xl outline-none dark:border-white/15 dark:bg-neutral-900"
+        className="w-full max-w-sm rounded-card border border-line bg-surface p-5 shadow-xl outline-none"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">
@@ -56,7 +56,7 @@ export default function SettingsPanel({ onClose }: Props) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded px-2 py-0.5 text-sm opacity-60 hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10"
+            className="rounded px-2 py-0.5 text-sm opacity-60 hover:bg-inset hover:opacity-100"
             aria-label="Close settings"
           >
             ×
@@ -64,7 +64,7 @@ export default function SettingsPanel({ onClose }: Props) {
         </div>
 
         <fieldset className="mt-4">
-          <legend className="text-xs font-medium uppercase tracking-wide text-black/50 dark:text-white/50">
+          <legend className="text-xs font-medium uppercase tracking-wide text-ink-muted">
             Appearance
           </legend>
 
@@ -74,10 +74,10 @@ export default function SettingsPanel({ onClose }: Props) {
               return (
                 <label
                   key={option.value}
-                  className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm ${
+                  className={`flex cursor-pointer items-center gap-3 rounded-control border px-3 py-2 text-sm ${
                     selected
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40'
-                      : 'border-black/10 hover:bg-black/[0.03] dark:border-white/15 dark:hover:bg-white/[0.06]'
+                      ? 'border-accent bg-accent-soft'
+                      : 'border-line hover:bg-inset'
                   }`}
                 >
                   <input
@@ -90,7 +90,7 @@ export default function SettingsPanel({ onClose }: Props) {
                   />
                   <span className="flex-1">
                     <span className="font-medium">{option.label}</span>
-                    <span className="block text-xs text-black/50 dark:text-white/50">
+                    <span className="block text-xs text-ink-muted">
                       {option.hint}
                     </span>
                   </span>
@@ -99,7 +99,7 @@ export default function SettingsPanel({ onClose }: Props) {
             })}
           </div>
 
-          <p className="mt-3 text-xs text-black/50 dark:text-white/50">
+          <p className="mt-3 text-xs text-ink-muted">
             Currently showing the {resolved} theme
             {preference === 'system' ? ' (from your device)' : ''}. This also
             switches the map basemap.

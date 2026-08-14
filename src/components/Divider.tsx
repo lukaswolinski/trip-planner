@@ -13,12 +13,12 @@ const BASE =
   'focus-visible:ring-2 focus-visible:ring-blue-500';
 
 const LINE =
-  'absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-black/10 transition-colors ' +
-  'group-hover:bg-blue-500/60 dark:bg-white/10 dark:group-hover:bg-blue-400/60';
+  'absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-inset transition-colors ' +
+  'group-hover:bg-blue-500/60';
 
 const GRIP =
-  'pointer-events-none relative h-8 w-1 rounded-full bg-black/15 opacity-0 transition-opacity ' +
-  'group-hover:opacity-100 group-focus-visible:opacity-100 dark:bg-white/25';
+  'pointer-events-none relative h-8 w-1 rounded-full bg-inset opacity-0 transition-opacity ' +
+  'group-hover:opacity-100 group-focus-visible:opacity-100';
 
 interface DragDividerProps {
   /** Current width of the element to the left, in pixels. */

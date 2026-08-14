@@ -23,21 +23,21 @@ interface Props {
  */
 export default function DestinationSection({ title, hint, partnerSlot }: Props) {
   return (
-    <section className="rounded-xl border border-black/10 dark:border-white/15">
-      <div className="flex items-center justify-between gap-3 border-b border-black/10 px-4 py-2.5 dark:border-white/15">
+    <section className="rounded-card border border-line">
+      <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5">
         <h2 className="text-sm font-semibold">{title}</h2>
-        <span className="rounded-full bg-black/[0.06] px-2 py-0.5 text-[10px] uppercase tracking-wide text-black/50 dark:bg-white/10 dark:text-white/50">
+        <span className="rounded-full bg-inset px-2 py-0.5 text-[10px] uppercase tracking-wide text-ink-muted">
           Coming soon
         </span>
       </div>
 
       <div className="px-4 py-6">
-        <p className="text-sm text-black/45 dark:text-white/45">{hint}</p>
+        <p className="text-sm text-ink-muted">{hint}</p>
 
         {partnerSlot ? (
-          <div className="mt-3 rounded-lg border border-dashed border-black/15 px-3 py-3 dark:border-white/20">
-            <p className="text-xs text-black/45 dark:text-white/45">{partnerSlot}</p>
-            <p className="mt-1 text-[11px] text-black/35 dark:text-white/35">
+          <div className="mt-3 rounded-control border border-dashed border-line px-3 py-3">
+            <p className="text-xs text-ink-muted">{partnerSlot}</p>
+            <p className="mt-1 text-[11px] text-ink-faint">
               Partner links will be marked as such, and we may earn a commission.
             </p>
           </div>

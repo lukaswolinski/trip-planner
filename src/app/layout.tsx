@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 // Imported from a neutral module, NOT from the 'use client' ThemeProvider: a
@@ -6,6 +7,21 @@ import { ThemeProvider } from '@/components/ThemeProvider';
 // client-reference stub, and interpolating that into the script below produced a
 // syntax error on every page load.
 import { DARK_MEDIA_QUERY, THEME_STORAGE_KEY } from '@/lib/theme';
+
+/**
+ * Inter, self-hosted.
+ *
+ * `next/font` downloads the files at build time and serves them from our own
+ * origin — no runtime request to Google. That matches the app's posture
+ * everywhere else (no external keys, no third-party calls from the client) and
+ * removes the layout shift a webfont normally causes, because the metrics are
+ * known before first paint.
+ */
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-sans',
+});
 
 export const metadata: Metadata = {
   title: 'Trip Planner — unlimited stops',
@@ -46,7 +62,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
       lang="en"
       data-theme="light"
       suppressHydrationWarning
-      className="h-full antialiased"
+      className={`${inter.variable} h-full antialiased`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />

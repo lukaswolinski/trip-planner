@@ -80,23 +80,23 @@ export default function ShareDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-inset p-4"
       role="dialog"
       aria-modal="true"
       aria-label="Share this trip"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl dark:bg-neutral-900"
+        className="w-full max-w-md rounded-card bg-surface p-5 shadow-xl"
         onClick={(event) => event.stopPropagation()}
       >
         <h2 className="text-base font-semibold">Share this trip</h2>
-        <p className="mt-1 text-xs text-black/60 dark:text-white/60">
+        <p className="mt-1 text-xs text-ink-muted">
           Anyone with the link can view the itinerary. They cannot edit it.
         </p>
 
         {needsEmail ? (
-          <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-500/40 dark:bg-amber-950/30">
+          <div className="mt-4 rounded-control border border-warn-line bg-warn-soft p-3">
             <p className="text-sm font-medium">Add your email first</p>
             <p className="mt-0.5 text-xs opacity-80">
               A share link outlives this browser, so it needs an account to belong to.
@@ -113,7 +113,7 @@ export default function ShareDialog({
                 readOnly
                 value={url}
                 onFocus={(event) => event.currentTarget.select()}
-                className="min-w-0 flex-1 rounded border border-black/15 bg-black/[0.03] px-2 py-1.5 font-mono text-xs dark:border-white/20 dark:bg-white/[0.06]"
+                className="min-w-0 flex-1 rounded border border-line bg-inset px-2 py-1.5 font-mono text-xs"
                 aria-label="Share link"
               />
               <button
@@ -123,7 +123,7 @@ export default function ShareDialog({
                   setCopied(true);
                   setTimeout(() => setCopied(false), 1500);
                 }}
-                className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+                className="rounded bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink hover:bg-accent-hover"
               >
                 {copied ? 'Copied' : 'Copy'}
               </button>
@@ -132,7 +132,7 @@ export default function ShareDialog({
               type="button"
               onClick={revoke}
               disabled={busy}
-              className="mt-3 text-xs text-red-600 underline hover:no-underline disabled:opacity-60 dark:text-red-400"
+              className="mt-3 text-xs text-danger underline hover:no-underline disabled:opacity-60"
             >
               Revoke this link
             </button>
@@ -142,21 +142,21 @@ export default function ShareDialog({
             type="button"
             onClick={createLink}
             disabled={busy}
-            className="mt-4 rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+            className="mt-4 rounded bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink hover:bg-accent-hover disabled:opacity-60"
           >
             {busy ? 'Creating…' : 'Create share link'}
           </button>
         )}
 
         {error ? (
-          <p className="mt-3 text-xs text-red-600 dark:text-red-400">{error}</p>
+          <p className="mt-3 text-xs text-danger">{error}</p>
         ) : null}
 
         <div className="mt-5 text-right">
           <button
             type="button"
             onClick={onClose}
-            className="rounded px-3 py-1.5 text-sm hover:bg-black/5 dark:hover:bg-white/10"
+            className="rounded px-3 py-1.5 text-sm hover:bg-inset"
           >
             Close
           </button>

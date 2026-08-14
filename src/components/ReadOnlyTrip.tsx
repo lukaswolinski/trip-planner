@@ -31,13 +31,13 @@ export default function ReadOnlyTrip({ title, stops, summary, partial }: Props) 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-4">
       <header>
-        <p className="text-xs uppercase tracking-wide text-black/45 dark:text-white/45">
+        <p className="text-xs uppercase tracking-wide text-ink-muted">
           Shared itinerary · view only
         </p>
         <h1 className="text-2xl font-semibold">{title}</h1>
       </header>
 
-      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 rounded-lg border border-black/10 bg-black/[0.02] px-4 py-3 text-sm dark:border-white/15 dark:bg-white/[0.04]">
+      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 rounded-control border border-line bg-inset px-4 py-3 text-sm">
         <span>
           <strong className="tabular-nums">
             {formatDistance(summary.totalDistanceM)}
@@ -51,12 +51,12 @@ export default function ReadOnlyTrip({ title, stops, summary, partial }: Props) 
         <span>{formatStopCount(summary.stopCount)}</span>
         <span>{formatNights(summary.totalNights)}</span>
         {age ? (
-          <span className="ml-auto text-xs text-black/45 dark:text-white/45">{age}</span>
+          <span className="ml-auto text-xs text-ink-muted">{age}</span>
         ) : null}
       </div>
 
       {partial ? (
-        <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-100">
+        <p className="rounded-control border border-warn-line bg-warn-soft px-3 py-2 text-xs text-ink">
           Some distances are still being recalculated, so the totals above cover only
           part of the route. Reload in a moment for the full figures.
         </p>
@@ -68,20 +68,20 @@ export default function ReadOnlyTrip({ title, stops, summary, partial }: Props) 
             const leg = legByFrom.get(stop.id);
             return (
               <li key={stop.id}>
-                <div className="rounded-lg border border-black/10 bg-white p-3 dark:border-white/15 dark:bg-white/[0.04]">
+                <div className="rounded-control border border-line bg-surface p-3">
                   <div className="flex items-start gap-3">
-                    <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white">
+                    <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-ink">
                       {index + 1}
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium">{stop.name}</p>
                       {stop.address ? (
-                        <p className="truncate text-xs text-black/50 dark:text-white/50">
+                        <p className="truncate text-xs text-ink-muted">
                           {stop.address}
                         </p>
                       ) : null}
                       {stop.days > 0 ? (
-                        <p className="mt-1 text-xs text-black/60 dark:text-white/60">
+                        <p className="mt-1 text-xs text-ink-muted">
                           {formatNights(stop.days)} here
                         </p>
                       ) : null}
@@ -90,7 +90,7 @@ export default function ReadOnlyTrip({ title, stops, summary, partial }: Props) 
                         dangerouslySetInnerHTML and no injection surface.
                       */}
                       {stop.notes ? (
-                        <p className="mt-1 whitespace-pre-wrap text-xs text-black/70 dark:text-white/70">
+                        <p className="mt-1 whitespace-pre-wrap text-xs text-ink-muted">
                           {stop.notes}
                         </p>
                       ) : null}
@@ -99,8 +99,8 @@ export default function ReadOnlyTrip({ title, stops, summary, partial }: Props) 
                 </div>
 
                 {index < stops.length - 1 ? (
-                  <div className="flex items-center gap-2 py-1 pl-6 text-xs text-black/55 dark:text-white/55">
-                    <span aria-hidden className="text-black/25 dark:text-white/25">
+                  <div className="flex items-center gap-2 py-1 pl-6 text-xs text-ink-muted">
+                    <span aria-hidden className="text-black/25">
                       │
                     </span>
                     {leg ? (
@@ -125,7 +125,7 @@ export default function ReadOnlyTrip({ title, stops, summary, partial }: Props) 
           stops={stops.map((s) => ({ id: s.id, name: s.name, lat: s.lat, lng: s.lng }))}
           roadSegments={summary.roadSegments}
           flightSegments={summary.flightSegments}
-          className="h-[26rem] w-full rounded-lg lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)]"
+          className="h-[26rem] w-full rounded-control lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)]"
         />
       </div>
     </div>

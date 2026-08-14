@@ -62,7 +62,7 @@ export default function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-inset p-4"
       onClick={onCancel}
     >
       <div
@@ -70,7 +70,7 @@ export default function ConfirmDialog({
         aria-modal="true"
         aria-labelledby="confirm-title"
         aria-describedby={message ? 'confirm-message' : undefined}
-        className="w-full max-w-sm rounded-xl border border-black/10 bg-white p-5 shadow-xl dark:border-white/15 dark:bg-neutral-900"
+        className="w-full max-w-sm rounded-card border border-line bg-surface p-5 shadow-xl"
         onClick={(event) => event.stopPropagation()}
       >
         <h2 id="confirm-title" className="text-base font-semibold">
@@ -79,7 +79,7 @@ export default function ConfirmDialog({
         {message ? (
           <p
             id="confirm-message"
-            className="mt-1.5 text-sm text-black/65 dark:text-white/65"
+            className="mt-1.5 text-sm text-ink-muted"
           >
             {message}
           </p>
@@ -90,7 +90,7 @@ export default function ConfirmDialog({
             ref={cancelRef}
             type="button"
             onClick={onCancel}
-            className="rounded-lg border border-black/15 px-3 py-1.5 text-sm font-medium hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            className="rounded-control border border-line px-3 py-1.5 text-sm font-medium hover:bg-inset"
           >
             {cancelLabel}
           </button>
@@ -98,10 +98,10 @@ export default function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className={`rounded-lg px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60 ${
+            className={`rounded-control px-3 py-1.5 text-sm font-medium text-accent-ink disabled:opacity-60 ${
               destructive
-                ? 'bg-red-600 hover:bg-red-700'
-                : 'bg-blue-600 hover:bg-blue-700'
+                ? 'bg-danger hover:opacity-90'
+                : 'bg-accent hover:bg-accent-hover'
             }`}
           >
             {busy ? 'Working…' : confirmLabel}

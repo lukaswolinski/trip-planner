@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-// MapLibre GL JS v5 ships named exports only â€” there is no default export.
+// MapLibre GL JS v5 ships named exports only — there is no default export.
 // `Map` is aliased so it does not shadow the global Map constructor.
 import {
   LngLatBounds,
@@ -29,7 +29,7 @@ interface Props {
   flightSegments: readonly (readonly [number, number][])[];
   /**
    * Called when a selected marker is dragged to a new position. Omit to make
-   * markers fixed â€” the read-only share page does.
+   * markers fixed — the read-only share page does.
    */
   onStopMoved?: (stopId: string, lat: number, lng: number) => void;
   /** Called when the map is right-clicked, to add a stop there. */
@@ -62,7 +62,7 @@ const STYLES = {
  * One override per theme, not a single one for both.
  *
  * A single NEXT_PUBLIC_MAP_STYLE_URL silently pinned the basemap to one style
- * and made the appearance setting unable to change it â€” the map stayed light
+ * and made the appearance setting unable to change it — the map stayed light
  * while the rest of the UI went dark.
  */
 function styleUrlFor(theme: 'light' | 'dark'): string {
@@ -95,18 +95,18 @@ const FLIGHT_COLORS = {
 
 const MARKER_BASE =
   'flex h-7 w-7 items-center justify-center rounded-full border-2 text-xs font-semibold ' +
-  'text-white shadow-md transition-transform';
+  'text-accent-ink shadow-md transition-transform';
 
 /** Unselected: a click target, not a drag handle. */
-const MARKER_IDLE = `${MARKER_BASE} border-white bg-blue-600 cursor-pointer`;
+const MARKER_IDLE = `${MARKER_BASE} border-white bg-accent cursor-pointer`;
 
 /**
  * Selected: visibly larger with a ring, and the only marker that can be dragged.
- * The ring is the affordance â€” it is what tells you a drag will now move a stop.
+ * The ring is the affordance — it is what tells you a drag will now move a stop.
  *
  * âš ï¸ `scale-125` must land on the **inner** element, never the one MapLibre
  * positions. Tailwind v4 compiles `scale-*` to the standalone CSS `scale`
- * property, which the spec applies *before* `transform` â€” so it multiplies
+ * property, which the spec applies *before* `transform` — so it multiplies
  * MapLibre's translation instead of just enlarging the dot. Measured: a marker
  * at `translate(694px, 344px)` jumped 173.5px right and 86px down the moment it
  * was selected, scaling with distance from the map origin.
@@ -133,7 +133,7 @@ type RouteData = {
  * always be created safely and simply holds nothing until there is a real route.
  *
  * Takes many segments rather than one line because a flight leg breaks the
- * route into disconnected runs, and each run must be its own feature â€” a single
+ * route into disconnected runs, and each run must be its own feature — a single
  * LineString through all of them would draw the gap as though it were road.
  */
 function routeData(segments: readonly (readonly [number, number][])[]): RouteData {
@@ -274,7 +274,7 @@ interface MarkerRecord {
  *
  * Uses classList rather than assigning `className`. MapLibre adds its own
  * `maplibregl-marker` classes to the element *after* construction, and
- * overwriting className stripped them â€” the markers stayed visible but stopped
+ * overwriting className stripped them — the markers stayed visible but stopped
  * being MapLibre markers as far as the DOM was concerned.
  *
  * Kept at module scope because the React Compiler rejects mutating a value that
@@ -283,12 +283,12 @@ interface MarkerRecord {
 function paintMarker(record: MarkerRecord, name: string, isSelected: boolean): void {
   const next = isSelected ? MARKER_SELECTED : MARKER_IDLE;
   const previous = isSelected ? MARKER_IDLE : MARKER_SELECTED;
-  // Painted on the inner element, never the outer one â€” see MARKER_SELECTED.
+  // Painted on the inner element, never the outer one — see MARKER_SELECTED.
   record.inner.classList.remove(...previous.split(' ').filter(Boolean));
   record.inner.classList.add(...next.split(' ').filter(Boolean));
   record.el.title = isSelected
-    ? `${name} â€” drag to move, Esc to cancel`
-    : `${name} â€” click to move`;
+    ? `${name} — drag to move, Esc to cancel`
+    : `${name} — click to move`;
 }
 
 export default function TripMap({
@@ -300,13 +300,13 @@ export default function TripMap({
   onRequestDeleteStop,
   className,
 }: Props) {
-  // Read from context rather than a prop, so the read-only share page â€” which is
-  // a Server Component and cannot pass one â€” is themed too.
+  // Read from context rather than a prop, so the read-only share page — which is
+  // a Server Component and cannot pass one — is themed too.
   const { resolved: theme } = useTheme();
   /**
    * The map lives in state, created by a callback ref rather than an effect.
    *
-   * With the instance in a ref, every other effect had to guess when it existed â€”
+   * With the instance in a ref, every other effect had to guess when it existed —
    * and after React's Strict Mode remount in development the map was rebuilt
    * while the marker effect did not re-run (its dependencies had not changed), so
    * no markers appeared at all. It only ever worked by accident, because `stops`
@@ -427,7 +427,7 @@ export default function TripMap({
    * on Backspace itself once we have claimed it.
    *
    * Deletion goes through the same confirmation dialog as the Remove button
-   * rather than deleting outright â€” a keystroke is exactly the kind of input
+   * rather than deleting outright — a keystroke is exactly the kind of input
    * that gets pressed by accident.
    */
   useEffect(() => {
@@ -461,7 +461,7 @@ export default function TripMap({
    * Push new geometry whenever it changes.
    *
    * `isStyleLoaded()` stays false while sprites and glyphs are still loading,
-   * which is long after `addSource` would succeed â€” so a summary arriving in
+   * which is long after `addSource` would succeed — so a summary arriving in
    * that window used to be dropped on the floor and never retried, because
    * `styledata` had already fired for the last time. The route then simply
    * never appeared, with no error anywhere. Deferring to the next `idle`
@@ -485,7 +485,7 @@ export default function TripMap({
     };
   }, [mapInstance, roadSegments, flightSegments, theme]);
 
-  /** Identity of the stop set â€” changes on add, remove and reorder only. */
+  /** Identity of the stop set — changes on add, remove and reorder only. */
   const fitKey = useMemo(() => stops.map((s) => s.id).join('|'), [stops]);
 
   /** Positions, so markers move when coordinates change without rebuilding. */
@@ -517,8 +517,8 @@ export default function TripMap({
         .addTo(instance);
 
       if (canDrag) {
-        // Click selects. stopPropagation keeps the map's own click â€” which
-        // deselects â€” from immediately undoing it.
+        // Click selects. stopPropagation keeps the map's own click — which
+        // deselects — from immediately undoing it.
         el.addEventListener('click', (event) => {
           event.stopPropagation();
           /*
@@ -551,7 +551,7 @@ export default function TripMap({
     });
   }, [mapInstance, fitKey, canDrag]);
 
-  // Move existing markers when coordinates change â€” no rebuild, so an in-flight
+  // Move existing markers when coordinates change — no rebuild, so an in-flight
   // drag is never destroyed.
   useEffect(() => {
     for (const record of markers.current) {
@@ -574,7 +574,7 @@ export default function TripMap({
    * Auto-fit depends on `fitKey` ALONE.
    *
    * This is the bug behind "the map keeps re-zooming". `fitKey` was already
-   * stable, but `stops` was also in this dependency array â€” and `stops` is a
+   * stable, but `stops` was also in this dependency array — and `stops` is a
    * fresh array on every parent render. So typing a note or moving a marker
    * re-ran the effect and re-fit the camera even though the stop set had not
    * changed. Coordinates are read from the ref instead, which is not a
@@ -619,25 +619,33 @@ export default function TripMap({
       {/*
         `h-full w-full`, NOT `absolute inset-0`: maplibre-gl.css sets
         `.maplibregl-map { position: relative }` on the container, which beats
-        Tailwind's `absolute` and left `inset-0` doing nothing â€” the map
+        Tailwind's `absolute` and left `inset-0` doing nothing — the map
         collapsed to 56px tall. Explicit sizing is not overridden.
       */}
       <div ref={containerRef} className="h-full w-full" />
 
-      {/* Hint chips. pointer-events-none so they never block the map. */}
+      {/*
+        Hint chips, bottom-left rather than a heavy dark bar across the top.
+
+        The idle hint is ambient information, so it is quiet and out of the way;
+        the selection hint is a live mode with an escape route, so it earns the
+        accent colour and sits in the same place for continuity.
+      */}
       {canAdd && !selectedName ? (
-        <div className="pointer-events-none absolute left-2 top-2 rounded-md bg-black/65 px-2 py-1 text-[11px] font-medium text-white shadow">
-          Right-click the map to add a stop Â· click a marker to move it
+        <div className="pointer-events-none absolute bottom-10 left-2 rounded-control border border-line bg-surface/85 px-2.5 py-1.5 text-[11px] text-ink-muted shadow-card backdrop-blur">
+          Right-click to add a stop · click a pin to move it
         </div>
       ) : null}
 
       {selectedName ? (
-        <div className="absolute left-2 top-2 flex items-center gap-2 rounded-md bg-amber-500 px-2 py-1 text-[11px] font-semibold text-white shadow">
-          <span>Drag â€œ{selectedName}â€ to move it</span>
+        <div className="absolute bottom-10 left-2 flex items-center gap-2.5 rounded-control border border-accent/30 bg-accent-soft px-2.5 py-1.5 text-[11px] font-medium text-ink shadow-card backdrop-blur">
+          <span className="max-w-[16rem] truncate">
+            Drag “{selectedName}” to move it
+          </span>
           <button
             type="button"
             onClick={deselect}
-            className="rounded bg-black/20 px-1.5 py-0.5 font-medium hover:bg-black/30"
+            className="rounded border border-line bg-surface px-1.5 py-0.5 font-medium text-ink-muted transition-colors hover:bg-inset hover:text-ink"
           >
             Cancel
           </button>

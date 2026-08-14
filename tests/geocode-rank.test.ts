@@ -122,13 +122,13 @@ describe('ranking', () => {
       { name: 'San Antonio CL', ...classifyFeature({ type: 'city', osmKey: 'place', osmValue: 'city' }) },
       { name: 'San Antonio Huitepec', ...classifyFeature({ type: 'county', osmKey: 'boundary', osmValue: 'administrative' }) },
       { name: 'San Antonio Sinicahua', ...classifyFeature({ type: 'county', osmKey: 'boundary', osmValue: 'administrative' }) },
-      { name: 'San Antonio de BenagÃ©ber', ...classifyFeature({ type: 'city', osmKey: 'place', osmValue: 'village' }) },
+      { name: 'San Antonio de Benagéber', ...classifyFeature({ type: 'city', osmKey: 'place', osmValue: 'village' }) },
     ];
     const ranked = rankResults(sanAntonio).map((r) => r.name);
     expect(ranked.slice(0, 3)).toEqual([
       'San Antonio TX',
       'San Antonio CL',
-      'San Antonio de BenagÃ©ber',
+      'San Antonio de Benagéber',
     ]);
   });
 

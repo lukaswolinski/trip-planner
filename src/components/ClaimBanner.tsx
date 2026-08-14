@@ -56,7 +56,7 @@ export default function ClaimBanner({ claimed, tripId }: Props) {
   if (claimed || dismissed) return null;
 
   return (
-    <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-950 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-100">
+    <div className="rounded-control border border-warn-line bg-warn-soft px-4 py-3 text-ink">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-sm font-medium">Add your email to keep these trips</p>
@@ -71,7 +71,7 @@ export default function ClaimBanner({ claimed, tripId }: Props) {
         <button
           type="button"
           onClick={dismiss}
-          className="shrink-0 rounded px-2 py-1 text-xs opacity-70 hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10"
+          className="shrink-0 rounded px-2 py-1 text-xs opacity-70 hover:bg-inset hover:opacity-100"
           aria-label="Dismiss for this session"
         >
           Not now

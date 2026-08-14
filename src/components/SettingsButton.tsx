@@ -14,7 +14,7 @@ export default function SettingsButton() {
         onClick={() => setOpen(true)}
         aria-label="Settings"
         title="Settings"
-        className="rounded-lg border border-black/15 px-2.5 py-1.5 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+        className="rounded-control border border-line px-2.5 py-1.5 text-sm hover:bg-inset"
       >
         <svg
           aria-hidden

@@ -103,6 +103,32 @@ The upstream throttle in `lib/routing/throttle.ts` paces **per Node process**, s
 on multi-instance serverless the real rate is per-instance × warm instances. Fine
 given the cache; not a hard global guarantee.
 
+## Design system
+
+Colour lives **only** in `globals.css` as tokens, defined twice (light `:root`,
+`:root[data-theme="dark"]`) and exposed through `@theme inline`. Components use
+`bg-surface`, `text-ink-muted`, `border-line`, `bg-accent` — never raw
+`black/10`-style values.
+
+**A tokened class needs no `dark:` variant**: the token is already redefined per
+theme. Adding `dark:` to a tokened class is redundant and usually wrong.
+Surfaces are deliberately warm (`#fbfaf9`) so the panel does not read as
+clinical beside the warm basemap. `ui.tsx` holds the shared button/input class
+strings; `.tnum` gives tabular figures to anything that updates in place.
+
+## ⚠️ Never edit source files with PowerShell Get-Content/Set-Content
+
+`Get-Content -Raw` decodes with the **ANSI codepage** when a file has no BOM, so
+reading a UTF-8 source and writing it back double-encodes every non-ASCII
+character: `—` became `â€”`, `·` became `Â·`, `München` became `MÃ¼nchen`. This
+shipped in a commit before it was noticed, across five files and 30 occurrences.
+Use the Read/Edit/Write tools, or Node (`fs.readFileSync(f, 'utf8')`), which
+handle UTF-8 correctly. Scan with `/Â|â€|Ã[©¼¶]/` if a file looks suspect.
+
+Related: bulk regex rewrites over source must not include whitespace
+"tidying" — a `/  +/g → ' '` rule flattened the indentation of 26 files in one
+pass.
+
 ## Gotchas that cost real time
 
 - **Next 16:** it's `proxy.ts`, not `middleware.ts`, exporting `proxy`.

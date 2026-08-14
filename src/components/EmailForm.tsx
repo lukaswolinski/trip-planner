@@ -73,7 +73,7 @@ export default function EmailForm({ tripId, submitLabel = 'Send link', onSent }:
   if (state.kind === 'not-configured') {
     return (
       <div className="space-y-2 text-sm">
-        <p className="font-medium text-amber-900 dark:text-amber-200">
+        <p className="font-medium text-ink">
           No email was sent — email delivery is not set up on this server.
         </p>
         {state.devLink ? (
@@ -84,7 +84,7 @@ export default function EmailForm({ tripId, submitLabel = 'Send link', onSent }:
             </p>
             <a
               href={state.devLink}
-              className="block break-all rounded border border-black/15 bg-black/[0.03] px-2 py-1.5 font-mono text-xs underline hover:bg-black/[0.06] dark:border-white/20 dark:bg-white/[0.06]"
+              className="block break-all rounded border border-line bg-inset px-2 py-1.5 font-mono text-xs underline hover:bg-inset"
             >
               {state.devLink}
             </a>
@@ -111,18 +111,18 @@ export default function EmailForm({ tripId, submitLabel = 'Send link', onSent }:
         value={email}
         onChange={(event) => setEmail(event.target.value)}
         placeholder="you@example.com"
-        className="min-w-0 flex-1 rounded border border-black/20 bg-white px-2.5 py-1.5 text-sm outline-none focus:border-blue-500 dark:border-white/25 dark:bg-white/[0.08]"
+        className="min-w-0 flex-1 rounded border border-line bg-surface px-2.5 py-1.5 text-sm outline-none focus:border-accent"
         aria-label="Email address"
       />
       <button
         type="submit"
         disabled={state.kind === 'sending'}
-        className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+        className="rounded bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink hover:bg-accent-hover disabled:opacity-60"
       >
         {state.kind === 'sending' ? 'Sending…' : submitLabel}
       </button>
       {error ? (
-        <p className="w-full text-xs text-red-600 dark:text-red-400">{error}</p>
+        <p className="w-full text-xs text-danger">{error}</p>
       ) : null}
     </form>
   );

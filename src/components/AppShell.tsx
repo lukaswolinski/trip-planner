@@ -223,7 +223,7 @@ export default function AppShell({ trips, claimed, email, children }: Props) {
   return (
     <div className="flex h-screen overflow-hidden">
       <aside
-        className={`flex shrink-0 flex-col bg-black/[0.02] transition-[width] duration-150 dark:bg-white/[0.03] ${
+        className={`flex shrink-0 flex-col bg-inset transition-[width] duration-150 ${
           collapsed ? 'w-14' : 'w-72'
         }`}
       >
@@ -239,7 +239,7 @@ export default function AppShell({ trips, claimed, email, children }: Props) {
               disabled={creating}
               title="New trip"
               aria-label="New trip"
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-lg leading-none text-white hover:bg-blue-700 disabled:opacity-60"
+              className="flex h-9 w-9 items-center justify-center rounded-control bg-accent text-lg leading-none text-accent-ink hover:bg-accent-hover disabled:opacity-60"
             >
               +
             </button>
@@ -248,7 +248,7 @@ export default function AppShell({ trips, claimed, email, children }: Props) {
               type="button"
               onClick={createTrip}
               disabled={creating}
-              className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+              className="w-full rounded-control bg-accent px-3 py-2 text-sm font-medium text-accent-ink hover:bg-accent-hover disabled:opacity-60"
             >
               {creating ? 'Creating…' : '+ New trip'}
             </button>
@@ -263,7 +263,7 @@ export default function AppShell({ trips, claimed, email, children }: Props) {
               onChange={(event) => setFilter(event.target.value)}
               placeholder="Search trips"
               aria-label="Search trips"
-              className="w-full rounded-lg border border-black/15 bg-white px-2.5 py-1.5 text-sm outline-none placeholder:text-black/40 focus:border-blue-500 dark:border-white/20 dark:bg-white/[0.06] dark:placeholder:text-white/40"
+              className="w-full rounded-control border border-line bg-surface px-2.5 py-1.5 text-sm outline-none placeholder:text-ink-faint focus:border-accent"
             />
           </div>
         ) : null}
@@ -282,10 +282,10 @@ export default function AppShell({ trips, claimed, email, children }: Props) {
                     <Link
                       href={`/trips/${trip.id}`}
                       title={trip.title}
-                      className={`flex h-9 w-9 items-center justify-center rounded-lg text-xs font-medium ${
+                      className={`flex h-9 w-9 items-center justify-center rounded-control text-xs font-medium ${
                         active
-                          ? 'bg-blue-600 text-white'
-                          : 'hover:bg-black/5 dark:hover:bg-white/10'
+                          ? 'bg-accent text-accent-ink'
+                          : 'hover:bg-inset'
                       }`}
                     >
                       {index + 1}
@@ -295,12 +295,14 @@ export default function AppShell({ trips, claimed, email, children }: Props) {
               })}
             </ul>
           ) : allTrips.length === 0 ? (
-            <p className="px-1 py-4 text-xs text-black/45 dark:text-white/45">
-              No trips yet. Create one to get started.
+            <p className="px-2 py-6 text-center text-[13px] leading-relaxed text-ink-muted">
+              No trips yet.
+              <br />
+              <span className="text-ink-faint">Start one with “New trip” above.</span>
             </p>
           ) : visible.length === 0 ? (
-            <p className="px-1 py-4 text-xs text-black/45 dark:text-white/45">
-              No trips match “{filter}”.
+            <p className="px-2 py-6 text-center text-[13px] text-ink-muted">
+              Nothing matches “{filter}”.
             </p>
           ) : (
             <ul className="space-y-0.5 pb-2">
@@ -330,16 +332,16 @@ export default function AppShell({ trips, claimed, email, children }: Props) {
                           }
                         }}
                         aria-label={`Rename ${trip.title}`}
-                        className="w-full rounded-lg border border-blue-500 bg-white px-2.5 py-2 text-sm outline-none dark:bg-white/[0.08]"
+                        className="w-full rounded-control border border-accent bg-surface px-2.5 py-2 text-sm outline-none"
                       />
                     ) : (
                       <>
                         <Link
                           href={`/trips/${trip.id}`}
-                          className={`block rounded-lg px-2.5 py-2 pr-8 ${
+                          className={`block rounded-control px-2.5 py-2 pr-8 ${
                             active
-                              ? 'bg-blue-600/10 ring-1 ring-blue-500/40 dark:bg-blue-500/15'
-                              : 'hover:bg-black/5 dark:hover:bg-white/10'
+                              ? 'bg-accent/10 ring-1 ring-blue-500/40'
+                              : 'hover:bg-inset'
                           }`}
                         >
                           <span className="flex items-center gap-1.5">
@@ -347,7 +349,7 @@ export default function AppShell({ trips, claimed, email, children }: Props) {
                               <span
                                 aria-label="Pinned"
                                 title="Pinned to the top"
-                                className="shrink-0 text-[11px] leading-none text-blue-600 dark:text-blue-400"
+                                className="shrink-0 text-[11px] leading-none text-accent"
                               >
                                 ●
                               </span>
@@ -356,7 +358,7 @@ export default function AppShell({ trips, claimed, email, children }: Props) {
                               {trip.title}
                             </span>
                           </span>
-                          <span className="block text-xs text-black/45 dark:text-white/45">
+                          <span className="block text-xs text-ink-muted">
                             {formatStopCount(trip.stopCount)}
                             {trip.shareSlug ? ' · shared' : ''}
                           </span>
@@ -371,7 +373,7 @@ export default function AppShell({ trips, claimed, email, children }: Props) {
                           aria-haspopup="menu"
                           aria-expanded={menuFor === trip.id}
                           title="More"
-                          className={`absolute right-1 top-1.5 rounded px-1.5 py-1 text-sm leading-none text-black/45 hover:bg-black/10 focus:opacity-100 dark:text-white/45 dark:hover:bg-white/15 ${
+                          className={`absolute right-1 top-1.5 rounded px-1.5 py-1 text-sm leading-none text-ink-muted hover:bg-inset focus:opacity-100 ${
                             menuFor === trip.id
                               ? 'opacity-100'
                               : 'opacity-0 group-hover:opacity-100'
@@ -412,13 +414,20 @@ export default function AppShell({ trips, claimed, email, children }: Props) {
           )}
         </nav>
 
-        {/* Pinned bottom: profile + settings */}
-        <div className="border-t border-black/10 p-2 dark:border-white/10">
+        {/*
+          Pinned bottom: profile + settings.
+
+          `shrink-0` and `overflow-hidden` matter: without them the scrolling
+          trip list above could squeeze this row, which is how the avatar ended
+          up sitting on top of the label and clipping "Not signed in" to
+          "ot signed in".
+        */}
+        <div className="shrink-0 overflow-hidden border-t border-line p-2">
           {collapsed ? (
             <div className="flex flex-col items-center gap-2">
               <div
                 title={email ?? 'Not signed in'}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-black/10 text-xs font-semibold dark:bg-white/15"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-inset text-xs font-semibold"
               >
                 {(email?.[0] ?? '?').toUpperCase()}
               </div>
@@ -426,14 +435,14 @@ export default function AppShell({ trips, claimed, email, children }: Props) {
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/10 text-xs font-semibold dark:bg-white/15">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-inset text-xs font-semibold">
                 {(email?.[0] ?? '?').toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-medium">
                   {email ?? 'Not signed in'}
                 </p>
-                <p className="text-[11px] text-black/45 dark:text-white/45">
+                <p className="text-[11px] text-ink-muted">
                   {claimed ? 'Trips saved to your account' : 'Saved to this browser'}
                 </p>
               </div>
@@ -456,7 +465,7 @@ export default function AppShell({ trips, claimed, email, children }: Props) {
       {/* Main + map. Each page decides how to split this. */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {error ? (
-          <div className="flex items-start justify-between gap-3 border-b border-red-300 bg-red-50 px-4 py-2 text-xs text-red-900 dark:border-red-500/40 dark:bg-red-950/30 dark:text-red-100">
+          <div className="flex items-start justify-between gap-3 border-b border-danger bg-danger-soft px-4 py-2 text-xs text-danger">
             <span>{error}</span>
             <button type="button" onClick={() => setError(null)} aria-label="Dismiss">
               ×

@@ -18,6 +18,7 @@ import {
   usePaneWidth,
 } from '@/lib/client/pane-width';
 import { formatCoordinates } from '@/lib/coords';
+import { EmptyState } from './ui';
 import type { GeocodeHit, StopDto, SummaryDto, TripDto } from '@/types';
 import type { TravelProfile } from '@/lib/limits';
 
@@ -433,7 +434,7 @@ export default function TripEditor({
       style={{ '--pane-width': `${paneWidth}px` } as React.CSSProperties}
     >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:w-[var(--pane-width)] lg:flex-none">
-        <header className="flex shrink-0 items-center gap-3 border-b border-black/10 px-4 py-3 dark:border-white/10">
+        <header className="flex shrink-0 items-center gap-3 border-b border-line px-4 py-3">
           {/*
             While focused the input shows your draft; otherwise it shows the
             server's value. That is what lets a rename from the sidebar appear
@@ -460,12 +461,12 @@ export default function TripEditor({
                 saveTitle(event.target.value.trim() || 'Untitled trip');
               }}
               title="Click to rename this trip"
-              className="w-full rounded-md border border-transparent bg-transparent px-2 py-1 pr-16 text-xl font-semibold outline-none transition-colors group-hover:border-black/10 group-hover:bg-black/[0.03] focus:border-blue-500 focus:bg-transparent dark:group-hover:border-white/15 dark:group-hover:bg-white/[0.06]"
+              className="w-full rounded-md border border-transparent bg-transparent px-2 py-1 pr-16 text-xl font-semibold outline-none transition-colors group-hover:border-line group-hover:bg-inset focus:border-accent focus:bg-transparent"
               aria-label="Trip title"
             />
             <span
               aria-hidden
-              className="pointer-events-none absolute inset-y-0 right-2 flex items-center gap-1 text-xs text-black/45 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-0 dark:text-white/45"
+              className="pointer-events-none absolute inset-y-0 right-2 flex items-center gap-1 text-xs text-ink-muted opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-0"
             >
               <PencilIcon />
               Edit
@@ -476,7 +477,7 @@ export default function TripEditor({
             onClick={() => setShareOpenLocal(true)}
             title={trip.shareSlug ? 'Share link' : 'Share this trip'}
             aria-label={trip.shareSlug ? 'Share link' : 'Share this trip'}
-            className="relative shrink-0 rounded-lg border border-black/15 p-2 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            className="relative shrink-0 rounded-control border border-line p-2 hover:bg-inset"
           >
             <LinkIcon />
             {/*
@@ -486,7 +487,7 @@ export default function TripEditor({
             {trip.shareSlug ? (
               <span
                 aria-hidden
-                className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-blue-600 dark:bg-blue-400"
+                className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-accent"
               />
             ) : null}
           </button>
@@ -505,7 +506,7 @@ export default function TripEditor({
             />
 
             {notice ? (
-              <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-100">
+              <div className="flex items-start justify-between gap-3 rounded-control border border-warn-line bg-warn-soft px-3 py-2 text-xs text-ink">
                 <span>{notice}</span>
                 <button
                   type="button"
@@ -518,7 +519,7 @@ export default function TripEditor({
             ) : null}
 
             {lastMove ? (
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-xs text-blue-950 dark:border-blue-500/40 dark:bg-blue-950/30 dark:text-blue-100">
+              <div className="flex items-center justify-between gap-3 rounded-control border border-accent/30 bg-accent-soft px-3 py-2 text-xs text-ink">
                 <span>
                   Moved <strong>{lastMove.name}</strong> to a new position.
                 </span>
@@ -526,7 +527,7 @@ export default function TripEditor({
                   <button
                     type="button"
                     onClick={undoMove}
-                    className="rounded bg-blue-600 px-2 py-1 font-medium text-white hover:bg-blue-700"
+                    className="rounded bg-accent px-2 py-1 font-medium text-accent-ink hover:bg-accent-hover"
                   >
                     Undo move
                   </button>
@@ -544,10 +545,18 @@ export default function TripEditor({
             <StopSearch onPick={addStop} near={searchNear} />
 
             {stops.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-black/15 p-6 text-center text-sm text-black/50 dark:border-white/20 dark:text-white/50">
-                Add your first stop to start building the route. There is no cap on how
-                many you can add.
-              </p>
+              <div className="rounded-card border border-dashed border-line">
+                <EmptyState
+                  icon={
+                    <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z" />
+                      <circle cx="12" cy="10" r="2.4" />
+                    </svg>
+                  }
+                  title="No stops yet"
+                  body="Search for a place above, paste coordinates, or right-click anywhere on the map. There is no cap on how many stops you can add."
+                />
+              </div>
             ) : (
               <StopList
                 stops={stops}
@@ -565,7 +574,7 @@ export default function TripEditor({
             )}
 
             {stops.length > softCap ? (
-              <p className="text-xs text-amber-700 dark:text-amber-400">
+              <p className="text-xs text-ink">
                 {stops.length} stops — past {softCap} the map and recalculation get
                 slower.
               </p>
@@ -586,7 +595,7 @@ export default function TripEditor({
       </div>
 
       {/* Map takes all remaining width, full height. */}
-      <div className="h-[24rem] shrink-0 border-t border-black/10 lg:h-full lg:min-w-0 lg:flex-1 lg:border-t-0 dark:border-white/10">
+      <div className="h-[24rem] shrink-0 border-t border-line lg:h-full lg:min-w-0 lg:flex-1 lg:border-t-0">
         <TripMap
           stops={mapStops}
           roadSegments={summary?.roadSegments ?? EMPTY_SEGMENTS}

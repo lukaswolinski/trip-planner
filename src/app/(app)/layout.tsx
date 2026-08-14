@@ -47,7 +47,7 @@ export default async function AppLayout({ children }: LayoutProps<'/'>) {
     return (
       <div className="mx-auto w-full max-w-2xl p-6">
         <h1 className="text-xl font-semibold">Setup needed</h1>
-        <p className="mt-2 text-sm text-black/70 dark:text-white/70">{failure}</p>
+        <p className="mt-2 text-sm text-ink-muted">{failure}</p>
       </div>
     );
   }

@@ -1,5 +1,5 @@
 ﻿/**
- * Mapbox Geocoding v6 â€” retained behind the provider interface.
+ * Mapbox Geocoding v6 — retained behind the provider interface.
  *
  * `permanent=true` is mandatory here, not an optimisation: we persist the
  * returned coordinates in `stops`, and Mapbox's *temporary* geocoding terms

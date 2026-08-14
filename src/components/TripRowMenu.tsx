@@ -45,13 +45,13 @@ export default function TripRowMenu({
   }, [onClose]);
 
   const item =
-    'block w-full px-3 py-1.5 text-left text-xs hover:bg-black/5 dark:hover:bg-white/10';
+    'block w-full px-3 py-1.5 text-left text-xs hover:bg-inset';
 
   return (
     <div
       ref={menu}
       role="menu"
-      className="absolute right-1 top-7 z-30 w-32 overflow-hidden rounded-lg border border-black/10 bg-white py-1 shadow-lg dark:border-white/15 dark:bg-neutral-900"
+      className="absolute right-1 top-7 z-30 w-32 overflow-hidden rounded-control border border-line bg-surface py-1 shadow-lg"
     >
       <button type="button" role="menuitem" className={item} onClick={onTogglePin}>
         {pinned ? 'Unpin' : 'Pin to top'}
@@ -65,7 +65,7 @@ export default function TripRowMenu({
       <button
         type="button"
         role="menuitem"
-        className={`${item} text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40`}
+        className={`${item} text-danger hover:bg-danger-soft`}
         onClick={onDelete}
       >
         Delete

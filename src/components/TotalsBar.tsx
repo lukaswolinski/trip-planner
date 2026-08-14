@@ -6,6 +6,7 @@ import {
   formatNights,
   formatStopCount,
 } from '@/lib/format';
+import { Skeleton, microLabel } from './ui';
 import type { SummaryDto } from '@/types';
 
 interface Props {
@@ -20,63 +21,62 @@ export default function TotalsBar({ summary, unit, onToggleUnit, stale }: Props)
   const hasFlights = (summary?.flightLegCount ?? 0) > 0;
 
   return (
-    <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1 rounded-lg border border-black/10 bg-black/[0.02] px-4 py-3 dark:border-white/15 dark:bg-white/[0.04]">
-      {/*
-        Labelled "Driving distance" only when a flight is present, so the
-        wording stays plain on ordinary trips but becomes precise exactly when
-        the distinction starts to matter.
-      */}
-      <Stat
-        label={hasFlights ? 'Driving distance' : 'Total distance'}
-        value={summary ? formatDistance(summary.totalDistanceM, unit) : '—'}
-        title={
-          hasFlights
-            ? 'Ground travel only. Flight legs are listed separately.'
-            : undefined
-        }
-        stale={stale}
-      />
-      <Stat
-        label="Travel time"
-        value={summary ? formatEstimate(summary.totalDurationS) : '—'}
-        title={ESTIMATE_TOOLTIP}
-        stale={stale}
-      />
-      {hasFlights && summary ? (
+    <div className="rounded-card border border-line bg-inset px-4 py-3">
+      <div className="flex flex-wrap items-start gap-x-7 gap-y-3">
+        {/*
+          Labelled "Driving" only when a flight is present, so the wording stays
+          plain on ordinary trips and becomes precise exactly when it matters.
+        */}
         <Stat
-          label={summary.flightLegCount === 1 ? 'Flight' : 'Flights'}
-          value={`${summary.flightLegCount} · ${formatDistance(summary.totalFlightDistanceM, unit)}`}
-          title="Legs with no road connection. Distance is straight-line; no travel time is included in the total."
+          label={hasFlights ? 'Driving' : 'Distance'}
+          value={summary ? formatDistance(summary.totalDistanceM, unit) : null}
+          title={
+            hasFlights
+              ? 'Ground travel only. Flight legs are listed separately.'
+              : undefined
+          }
           stale={stale}
         />
-      ) : null}
-      <Stat
-        label="Stops"
-        value={summary ? formatStopCount(summary.stopCount) : '—'}
-      />
-      <Stat
-        label="Overnights"
-        value={summary ? formatNights(summary.totalNights) : '—'}
-      />
+        <Stat
+          label="Travel time"
+          value={summary ? formatEstimate(summary.totalDurationS) : null}
+          title={ESTIMATE_TOOLTIP}
+          stale={stale}
+        />
+        {hasFlights && summary ? (
+          <Stat
+            label={summary.flightLegCount === 1 ? 'Flight' : 'Flights'}
+            value={`${summary.flightLegCount} · ${formatDistance(summary.totalFlightDistanceM, unit)}`}
+            title="Legs with no road connection. Distance is straight-line; no travel time is included in the total."
+            stale={stale}
+          />
+        ) : null}
+        <Stat label="Stops" value={summary ? formatStopCount(summary.stopCount) : null} />
+        <Stat
+          label="Overnights"
+          value={summary ? formatNights(summary.totalNights) : null}
+        />
 
-      <div className="ml-auto flex items-center gap-3">
-        {age ? (
-          <span
-            className="text-xs text-black/45 dark:text-white/45"
-            title="Route estimates are refreshed at least every 30 days"
-          >
-            {age}
-          </span>
-        ) : null}
-        {onToggleUnit ? (
-          <button
-            type="button"
-            onClick={onToggleUnit}
-            className="rounded border border-black/15 px-2 py-0.5 text-xs hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-          >
-            {unit === 'km' ? 'Switch to miles' : 'Switch to km'}
-          </button>
-        ) : null}
+        <div className="ml-auto flex items-center gap-2.5 self-center">
+          {age ? (
+            <span
+              className="text-[11px] text-ink-faint"
+              title="Route estimates are refreshed at least every 30 days"
+            >
+              {age}
+            </span>
+          ) : null}
+          {onToggleUnit ? (
+            <button
+              type="button"
+              onClick={onToggleUnit}
+              title={`Show distances in ${unit === 'km' ? 'miles' : 'kilometres'}`}
+              className="rounded-control border border-line bg-surface px-2 py-1 text-[11px] font-medium text-ink-muted transition-colors hover:bg-inset hover:text-ink"
+            >
+              {unit === 'km' ? 'mi' : 'km'}
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
   );
@@ -89,21 +89,24 @@ function Stat({
   stale,
 }: {
   label: string;
-  value: string;
+  /** Null renders a skeleton — the figure exists, it just has not arrived yet. */
+  value: string | null;
   title?: string;
   stale?: boolean;
 }) {
   return (
-    <div>
-      <div className="text-[11px] uppercase tracking-wide text-black/45 dark:text-white/45">
-        {label}
-      </div>
-      <div
-        className={`text-sm font-semibold tabular-nums ${stale ? 'opacity-50' : ''}`}
-        title={title}
-      >
-        {value}
-      </div>
+    <div className="min-w-0">
+      <div className={microLabel}>{label}</div>
+      {value === null ? (
+        <Skeleton className="mt-1 h-4 w-20" />
+      ) : (
+        <div
+          className={`tnum mt-0.5 text-[15px] font-semibold text-ink ${stale ? 'opacity-50' : ''}`}
+          title={title}
+        >
+          {value}
+        </div>
+      )}
     </div>
   );
 }
