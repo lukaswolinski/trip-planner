@@ -651,9 +651,14 @@ export default function TripMap({
         Route-line toggle, top-left so it never collides with MapLibre's zoom
         control at top-right or the hint chip at bottom-left.
 
+        Hidden entirely when there is no route to toggle — the destination
+        screen's single-stop map has no segments, and a control that does
+        nothing is worse than no control.
+
         `aria-pressed` rather than a checkbox: it is a two-state button, and
         that is the role screen readers announce correctly for one.
       */}
+      {roadSegments.length + flightSegments.length === 0 ? null : (
       <button
         type="button"
         onClick={() => setShowRoute(!showRoute)}
@@ -687,6 +692,7 @@ export default function TripMap({
         </svg>
         {showRoute ? 'Route' : 'Route hidden'}
       </button>
+      )}
 
       {/*
         Hint chips, bottom-left rather than a heavy dark bar across the top.

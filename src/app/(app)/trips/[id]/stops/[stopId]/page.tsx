@@ -3,24 +3,24 @@ import { notFound } from 'next/navigation';
 import { getSessionContext } from '@/lib/auth/session';
 import { getDb } from '@/lib/db';
 import { getOwnedTrip, listStops } from '@/lib/trips/repository';
+import { listItinerary } from '@/lib/trips/itinerary';
 import { uuidSchema } from '@/lib/validation/schemas';
 import { formatCoordinates } from '@/lib/coords';
 import { formatNights } from '@/lib/format';
 import TripMap from '@/components/TripMap';
-import DestinationSection from '@/components/DestinationSection';
+import ItineraryPanel from '@/components/ItineraryPanel';
+import ListingSection from '@/components/ListingSection';
+import { microLabel } from '@/components/ui';
+import type { ItineraryItemDto } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * Full-screen detail view for one stop.
  *
- * Shell only: the sections below are deliberately empty and say so. Nothing
- * here reads from a table that does not exist yet, so this page needs no schema
- * change — it renders fields `stops` already has.
- *
- * Ownership is checked exactly as the editor does. A stop is reachable only
- * through a trip the current session or user owns; there is no lookup by stop
- * id alone, so a guessed stop id leads nowhere.
+ * Ownership is checked exactly as the editor does: a stop is only reachable
+ * through a trip the current session or user owns, and there is no lookup by
+ * stop id alone, so a guessed id leads nowhere.
  */
 export default async function DestinationPage({
   params,
@@ -40,60 +40,58 @@ export default async function DestinationPage({
   if (index === -1) notFound();
   const stop = stops[index];
 
+  const items = await listItinerary(db, stopId);
+  const itemDtos: ItineraryItemDto[] = items.map((item) => ({
+    ...item,
+    createdAt: item.createdAt.toISOString(),
+    updatedAt: item.updatedAt.toISOString(),
+  }));
+
   const previous = stops[index - 1];
   const next = stops[index + 1];
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-y-auto">
-      <header className="sticky top-0 z-10 flex shrink-0 items-center gap-3 border-b border-line bg-white/85 px-5 py-3 backdrop-blur">
+    <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-bg">
+      <header className="sticky top-0 z-10 flex shrink-0 items-center gap-3 border-b border-line bg-surface/85 px-5 py-3 backdrop-blur">
         <Link
           href={`/trips/${id}`}
-          className="shrink-0 rounded-control border border-line px-2.5 py-1.5 text-sm hover:bg-inset"
+          className="shrink-0 rounded-control border border-line bg-surface px-2.5 py-1.5 text-sm text-ink transition-colors hover:bg-inset"
         >
           ← Back to trip
         </Link>
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-xl font-semibold">{stop.name}</h1>
-          <p className="truncate text-xs text-ink-muted">
+          <p className="truncate text-[13px] text-ink-muted">
             Stop {index + 1} of {stops.length} · {trip.title}
           </p>
         </div>
       </header>
 
       <div className="mx-auto w-full max-w-6xl px-5 py-6">
-        <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-          <div className="flex flex-col gap-6">
-            {/* What we already know about this stop. */}
-            <section className="rounded-card border border-line p-4">
-              <h2 className="text-sm font-semibold">Overview</h2>
+        <div className="grid gap-5 lg:grid-cols-[1fr_23rem]">
+          <div className="flex flex-col gap-5">
+            <section className="rounded-card border border-line bg-surface p-4">
+              <h2 className="text-[15px] font-semibold">Overview</h2>
               <dl className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-2">
                 <div>
-                  <dt className="text-[11px] uppercase tracking-wide text-ink-muted">
-                    Coordinates
-                  </dt>
-                  <dd className="font-mono text-sm">
+                  <dt className={microLabel}>Coordinates</dt>
+                  <dd className="tnum mt-0.5 text-sm">
                     {formatCoordinates(stop.lat, stop.lng)}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[11px] uppercase tracking-wide text-ink-muted">
-                    Nights
-                  </dt>
-                  <dd className="text-sm">{formatNights(stop.days)}</dd>
+                  <dt className={microLabel}>Nights</dt>
+                  <dd className="mt-0.5 text-sm">{formatNights(stop.days)}</dd>
                 </div>
-                {stop.address ? (
+                {stop.address && stop.address !== stop.name ? (
                   <div className="sm:col-span-2">
-                    <dt className="text-[11px] uppercase tracking-wide text-ink-muted">
-                      Address
-                    </dt>
-                    <dd className="text-sm">{stop.address}</dd>
+                    <dt className={microLabel}>Address</dt>
+                    <dd className="mt-0.5 text-sm">{stop.address}</dd>
                   </div>
                 ) : null}
                 <div className="sm:col-span-2">
-                  <dt className="text-[11px] uppercase tracking-wide text-ink-muted">
-                    Notes
-                  </dt>
-                  <dd className="whitespace-pre-wrap text-sm">
+                  <dt className={microLabel}>Notes</dt>
+                  <dd className="mt-0.5 whitespace-pre-wrap text-sm">
                     {stop.notes?.trim() ? (
                       stop.notes
                     ) : (
@@ -106,49 +104,41 @@ export default async function DestinationPage({
               </dl>
             </section>
 
-            <DestinationSection
-              title="Things to do"
-              hint="Activities you have saved for this stop will appear here."
-            />
-            <DestinationSection
-              title="Attractions"
-              hint="Points of interest near this stop."
-            />
-            <DestinationSection
-              title="Trails"
-              hint="Walking and hiking routes starting near this stop."
-            />
-            <DestinationSection
-              title="Restaurants"
-              hint="Places to eat near this stop."
-            />
-            <DestinationSection
+            <ItineraryPanel tripId={id} stopId={stopId} initialItems={itemDtos} />
+
+            <ListingSection
               title="Accommodation"
-              hint="Hotels and hostels near this stop."
-              /*
-               * Booking and tour results will be supplied by partners, so the
-               * slot carries the disclosure from the start. Declaring it now
-               * means the layout never has to be rearranged to make room for
-               * the label that regulators and the partner terms both require.
-               */
-              partnerSlot="Booking results will appear here."
+              hint="Hotels and hostels near this stop"
+              priceHint="from · per night"
+              partner
             />
-            <DestinationSection
-              title="Tours and experiences"
-              hint="Bookable activities near this stop."
-              partnerSlot="Tour results will appear here."
+            <ListingSection
+              title="Activities and attractions"
+              hint="Things to do, tours and sights nearby"
+              priceHint="from · per person"
+              partner
+            />
+            <ListingSection
+              title="Restaurants"
+              hint="Places to eat near this stop"
+              priceHint="price range"
+            />
+            <ListingSection
+              title="Trails"
+              hint="Walking and hiking routes starting nearby"
+              priceHint="distance · ascent"
             />
           </div>
 
-          <aside className="flex flex-col gap-6">
-            <section className="overflow-hidden rounded-card border border-line">
-              <h2 className="border-b border-line px-4 py-2.5 text-sm font-semibold">
+          <aside className="flex flex-col gap-5 lg:sticky lg:top-20 lg:self-start">
+            <section className="overflow-hidden rounded-card border border-line bg-surface">
+              <h2 className="border-b border-line px-4 py-3 text-[15px] font-semibold">
                 Location
               </h2>
               {/*
-                The same map component as the editor, given a single stop and no
-                route. Markers are fixed here because no `onStopMoved` is
-                passed — this is a reference view, not an editing surface.
+                The editor's map component with a single stop and no route.
+                Markers are fixed here because no `onStopMoved` is passed — this
+                is a reference view, not an editing surface.
               */}
               <div className="h-72">
                 <TripMap
@@ -162,16 +152,11 @@ export default async function DestinationPage({
               </div>
             </section>
 
-            <DestinationSection
-              title="Itinerary"
-              hint="A day-by-day plan for this stop will be built here."
-            />
-
-            <nav className="flex items-center justify-between gap-2 text-sm">
+            <nav className="flex items-center justify-between gap-2 text-[13px]">
               {previous ? (
                 <Link
                   href={`/trips/${id}/stops/${previous.id}`}
-                  className="min-w-0 truncate rounded-control border border-line px-2.5 py-1.5 hover:bg-inset"
+                  className="min-w-0 truncate rounded-control border border-line bg-surface px-2.5 py-1.5 text-ink-muted transition-colors hover:bg-inset hover:text-ink"
                 >
                   ← {previous.name}
                 </Link>
@@ -181,7 +166,7 @@ export default async function DestinationPage({
               {next ? (
                 <Link
                   href={`/trips/${id}/stops/${next.id}`}
-                  className="min-w-0 truncate rounded-control border border-line px-2.5 py-1.5 hover:bg-inset"
+                  className="min-w-0 truncate rounded-control border border-line bg-surface px-2.5 py-1.5 text-ink-muted transition-colors hover:bg-inset hover:text-ink"
                 >
                   {next.name} →
                 </Link>

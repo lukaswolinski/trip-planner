@@ -82,6 +82,33 @@ function build(limits: Limits) {
     version: z.number().int().min(0),
   });
 
+  /**
+   * Minutes from midnight. `nullable` is meaningful here — null clears a time,
+   * which is different from omitting the field and leaving it untouched.
+   */
+  const startMinutes = z.number().int().min(0).max(1439).nullable();
+
+  const createItineraryItem = z.object({
+    title: cleanLine(200).pipe(z.string().min(1)),
+    notes: cleanText(2000).nullish(),
+    startMinutes: startMinutes.optional(),
+  });
+
+  const patchItineraryItem = z
+    .object({
+      title: cleanLine(200).pipe(z.string().min(1)).optional(),
+      notes: cleanText(2000).nullish(),
+      startMinutes: startMinutes.optional(),
+    })
+    // An empty PATCH is a client bug, not a no-op worth accepting silently.
+    .refine((value) => Object.keys(value).length > 0, {
+      message: 'No fields to update',
+    });
+
+  const reorderItinerary = z.object({
+    orderedIds: z.array(z.uuid()).min(1).max(500),
+  });
+
   const createStop = z.object({
     name: cleanLine(200).pipe(z.string().min(1)),
     address: cleanLine(300).nullish(),
@@ -138,6 +165,9 @@ function build(limits: Limits) {
   return {
     createTrip,
     patchTrip,
+    createItineraryItem,
+    patchItineraryItem,
+    reorderItinerary,
     createStop,
     patchStop,
     reorder,

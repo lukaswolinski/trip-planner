@@ -39,6 +39,18 @@ export interface TripListItem {
   pinnedAt: string | null;
 }
 
+export interface ItineraryItemDto {
+  id: string;
+  stopId: string;
+  position: number;
+  title: string;
+  notes: string | null;
+  /** Minutes from midnight, or null when no time is set. */
+  startMinutes: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SummaryLegDto {
   fromStopId: string;
   toStopId: string;

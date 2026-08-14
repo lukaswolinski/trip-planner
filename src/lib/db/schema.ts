@@ -143,6 +143,47 @@ export const stops = pgTable(
 );
 
 /**
+ * Planned activities within one stop.
+ *
+ * Cascades from `stops`, so deleting a stop — or a trip, which cascades to its
+ * stops — already removes these through paths that exist. Items hang off
+ * `stop_id` rather than a stop's position, so reordering the trip leaves them
+ * alone.
+ */
+export const itineraryItems = pgTable(
+  'itinerary_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    stopId: uuid('stop_id')
+      .notNull()
+      .references(() => stops.id, { onDelete: 'cascade' }),
+    /** 0-based and contiguous, renumbered in one statement like stops. */
+    position: integer('position').notNull(),
+    title: text('title').notNull(),
+    notes: text('notes'),
+    /**
+     * Minutes from midnight (0..1439), or null for an untimed item.
+     *
+     * Deliberately not a `time` or `timestamptz`: a trip has nights per stop,
+     * not calendar dates, so there is no date or timezone to anchor to. "10:30"
+     * here means half ten local, whenever you arrive. An integer sorts and
+     * validates trivially and makes "no time set" simply null.
+     */
+    startMinutes: integer('start_minutes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('itinerary_items_stop_id_position_idx').on(t.stopId, t.position),
+    check('itinerary_items_position_check', sql`${t.position} >= 0`),
+    check(
+      'itinerary_items_start_minutes_check',
+      sql`${t.startMinutes} is null or (${t.startMinutes} >= 0 and ${t.startMinutes} < 1440)`,
+    ),
+  ],
+);
+
+/**
  * Provider-response cache, shared across all trips and users: two people
  * routing Denver -> Moab hit the same row.
  *
@@ -227,3 +268,5 @@ export type Session = typeof sessions.$inferSelect;
 export type Trip = typeof trips.$inferSelect;
 export type Stop = typeof stops.$inferSelect;
 export type RouteLeg = typeof routeLegs.$inferSelect;
+
+export type ItineraryItemRow = typeof itineraryItems.$inferSelect;

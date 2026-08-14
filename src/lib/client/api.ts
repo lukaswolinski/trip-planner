@@ -3,6 +3,7 @@
 import type {
   ApiErrorBody,
   GeocodeHit,
+  ItineraryItemDto,
   StopDto,
   SummaryDto,
   TripDto,
@@ -84,6 +85,39 @@ export const api = {
       version: number;
     },
   ) => call<{ trip: TripDto }>(`/api/trips/${tripId}`, { method: 'PATCH', json }),
+
+  addItineraryItem: (
+    tripId: string,
+    stopId: string,
+    json: { title: string; notes?: string | null; startMinutes?: number | null },
+  ) =>
+    call<{ item: ItineraryItemDto }>(
+      `/api/trips/${tripId}/stops/${stopId}/itinerary`,
+      { method: 'POST', json },
+    ),
+
+  patchItineraryItem: (
+    tripId: string,
+    stopId: string,
+    itemId: string,
+    json: { title?: string; notes?: string | null; startMinutes?: number | null },
+  ) =>
+    call<{ item: ItineraryItemDto }>(
+      `/api/trips/${tripId}/stops/${stopId}/itinerary/${itemId}`,
+      { method: 'PATCH', json },
+    ),
+
+  deleteItineraryItem: (tripId: string, stopId: string, itemId: string) =>
+    call<{ deleted: true }>(
+      `/api/trips/${tripId}/stops/${stopId}/itinerary/${itemId}`,
+      { method: 'DELETE' },
+    ),
+
+  reorderItinerary: (tripId: string, stopId: string, orderedIds: string[]) =>
+    call<{ items: ItineraryItemDto[] }>(
+      `/api/trips/${tripId}/stops/${stopId}/itinerary/reorder`,
+      { method: 'POST', json: { orderedIds } },
+    ),
 
   addStop: (
     tripId: string,
