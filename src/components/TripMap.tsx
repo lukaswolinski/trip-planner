@@ -13,6 +13,7 @@ import {
 } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useTheme } from './ThemeProvider';
+import { setShowRoute, useShowRoute } from '@/lib/client/route-visibility';
 
 export interface MapStop {
   id: string;
@@ -167,6 +168,7 @@ function ensureRoute(
   roadSegments: readonly (readonly [number, number][])[],
   flightSegments: readonly (readonly [number, number][])[],
   theme: 'light' | 'dark',
+  showRoute: boolean,
 ): void {
   const data = routeData(roadSegments);
   const colors = ROUTE_COLORS[theme];
@@ -247,6 +249,21 @@ function ensureRoute(
   } else {
     map.setPaintProperty(FLIGHT_LINE_LAYER, 'line-color', FLIGHT_COLORS[theme]);
   }
+
+  /*
+   * Applied here rather than only in a toggle handler, because a theme change
+   * calls setStyle, which discards every layer — they are rebuilt by the
+   * `styledata` handler, and a hidden route would silently come back visible.
+   * Setting it on every pass makes visibility a property of the desired state
+   * rather than of the sequence of events that led there.
+   *
+   * Markers are untouched by design: the numbered pins are the trip, and hiding
+   * them is never what "hide the route line" means.
+   */
+  const visibility = showRoute ? 'visible' : 'none';
+  for (const layer of [ROUTE_CASING_LAYER, ROUTE_LINE_LAYER, FLIGHT_LINE_LAYER]) {
+    if (map.getLayer(layer)) map.setLayoutProperty(layer, 'visibility', visibility);
+  }
 }
 
 /**
@@ -325,12 +342,16 @@ export default function TripMap({
    */
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  /** Persisted across sessions; see lib/client/route-visibility.ts. */
+  const showRoute = useShowRoute();
+
   // Latest props for use inside map event handlers, which outlive the render
   // that registered them.
   const latest = useRef({
     roadSegments,
     flightSegments,
     theme,
+    showRoute,
     stops,
     onStopMoved,
     onAddStopAt,
@@ -341,6 +362,7 @@ export default function TripMap({
       roadSegments,
       flightSegments,
       theme,
+      showRoute,
       stops,
       onStopMoved,
       onAddStopAt,
@@ -387,6 +409,7 @@ export default function TripMap({
         latest.current.roadSegments,
         latest.current.flightSegments,
         latest.current.theme,
+        latest.current.showRoute,
       );
     });
 
@@ -471,7 +494,7 @@ export default function TripMap({
     if (!mapInstance) return;
 
     const apply = (): void => {
-      ensureRoute(mapInstance, roadSegments, flightSegments, theme);
+      ensureRoute(mapInstance, roadSegments, flightSegments, theme, showRoute);
     };
 
     if (mapInstance.isStyleLoaded()) {
@@ -483,7 +506,7 @@ export default function TripMap({
     return () => {
       mapInstance.off('idle', apply);
     };
-  }, [mapInstance, roadSegments, flightSegments, theme]);
+  }, [mapInstance, roadSegments, flightSegments, theme, showRoute]);
 
   /** Identity of the stop set — changes on add, remove and reorder only. */
   const fitKey = useMemo(() => stops.map((s) => s.id).join('|'), [stops]);
@@ -623,6 +646,47 @@ export default function TripMap({
         collapsed to 56px tall. Explicit sizing is not overridden.
       */}
       <div ref={containerRef} className="h-full w-full" />
+
+      {/*
+        Route-line toggle, top-left so it never collides with MapLibre's zoom
+        control at top-right or the hint chip at bottom-left.
+
+        `aria-pressed` rather than a checkbox: it is a two-state button, and
+        that is the role screen readers announce correctly for one.
+      */}
+      <button
+        type="button"
+        onClick={() => setShowRoute(!showRoute)}
+        aria-pressed={showRoute}
+        title={
+          showRoute
+            ? 'Hide the route line (pins stay)'
+            : 'Show the route line'
+        }
+        className={`absolute left-2 top-2 flex items-center gap-1.5 rounded-control border px-2.5 py-1.5 text-[11px] font-medium shadow-card backdrop-blur transition-colors ${
+          showRoute
+            ? 'border-accent/30 bg-accent-soft text-ink'
+            : 'border-line bg-surface/85 text-ink-muted hover:text-ink'
+        }`}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          className="h-3.5 w-3.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.9}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          {/* A winding route between two points. */}
+          <path d="M4 18c4 0 3-6 8-6s4-6 8-6" />
+          <circle cx="4" cy="18" r="1.6" fill="currentColor" stroke="none" />
+          <circle cx="20" cy="6" r="1.6" fill="currentColor" stroke="none" />
+          {showRoute ? null : <path d="M3 3l18 18" />}
+        </svg>
+        {showRoute ? 'Route' : 'Route hidden'}
+      </button>
 
       {/*
         Hint chips, bottom-left rather than a heavy dark bar across the top.

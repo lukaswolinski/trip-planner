@@ -89,24 +89,18 @@ export default function StopCard({
               className="min-w-0 flex-1 truncate rounded border-0 bg-transparent px-1 py-0.5 text-[15px] font-medium text-ink outline-none transition-colors hover:bg-inset focus:bg-inset"
               aria-label="Stop name"
             />
+            {/*
+              A labelled button, not a bare chevron. An arrow beside an editable
+              name is ambiguous — it could plausibly expand, reorder, or go to
+              the next stop — and this is the entry point to a whole screen, so
+              it should say where it goes.
+            */}
             <Link
               href={`/trips/${stop.tripId}/stops/${stop.id}`}
-              title={`Open ${stop.name}`}
-              aria-label={`Open destination page for ${stop.name}`}
-              className="shrink-0 rounded-control p-1 text-ink-faint opacity-0 transition-opacity hover:bg-inset hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
+              title={`View destination: ${stop.name}`}
+              className="shrink-0 whitespace-nowrap rounded-control border border-line bg-surface px-2 py-1 text-[11px] font-medium text-ink-muted opacity-0 transition hover:border-line-strong hover:bg-inset hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
             >
-              <svg
-                viewBox="0 0 24 24"
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.8}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <path d="M9 18l6-6-6-6" />
-              </svg>
+              View destination
             </Link>
           </div>
 
