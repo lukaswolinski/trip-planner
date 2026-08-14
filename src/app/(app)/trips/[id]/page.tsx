@@ -4,6 +4,7 @@ import { getDb } from '@/lib/db';
 import { getOwnedTrip, listStops, type StopRow, type TripRow } from '@/lib/trips/repository';
 import { uuidSchema } from '@/lib/validation/schemas';
 import { estimateAgeDays, summarizeTrip } from '@/lib/routing/service';
+import { budgetSummary, ensureOwnerMember, listMembers } from '@/lib/trips/members';
 import { appUrl } from '@/lib/app-url';
 import TripEditor from '@/components/TripEditor';
 import type { StopDto, SummaryDto, TripDto } from '@/types';
@@ -49,6 +50,19 @@ export default async function TripPage({ params }: PageProps<'/trips/[id]'>) {
     console.error('[page] /trips/[id] initial summary', error);
   }
 
+  /*
+   * The owner is added to the member list on read so budget splits can include
+   * them. Anonymous owners are skipped: membership binds to a user id, which
+   * they do not have yet.
+   */
+  if (context.userId && context.email) {
+    await ensureOwnerMember(db, id, context.userId, context.email);
+  }
+  const [members, budget] = await Promise.all([
+    listMembers(db, id),
+    budgetSummary(db, id),
+  ]);
+
   return (
     <TripEditor
       trip={serializeTrip(trip)}
@@ -57,6 +71,21 @@ export default async function TripPage({ params }: PageProps<'/trips/[id]'>) {
       claimed={context.userId !== null}
       softCap={context.limits.maxStops}
       shareBaseUrl={appUrl()}
+      members={members.map((m) => ({
+        id: m.id,
+        email: m.email,
+        acceptedAt: m.acceptedAt?.toISOString() ?? null,
+      }))}
+      budget={{
+        ...budget,
+        expenses: budget.expenses.map((e) => ({
+          id: e.id,
+          description: e.description,
+          amountCents: e.amountCents,
+          paidByMemberId: e.paidByMemberId,
+          shares: e.shares,
+        })),
+      }}
     />
   );
 }

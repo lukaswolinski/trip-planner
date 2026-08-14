@@ -19,6 +19,7 @@ import {
 } from '@/lib/client/pane-width';
 import { formatCoordinates } from '@/lib/coords';
 import { EmptyState } from './ui';
+import BudgetPanel from './BudgetPanel';
 import type { GeocodeHit, StopDto, SummaryDto, TripDto } from '@/types';
 import type { TravelProfile } from '@/lib/limits';
 
@@ -35,6 +36,8 @@ interface Props {
   softCap: number;
   /** Absolute origin from APP_URL, for building share links without `window`. */
   shareBaseUrl: string;
+  members: Array<{ id: string; email: string; acceptedAt: string | null }>;
+  budget: React.ComponentProps<typeof BudgetPanel>['initialSummary'];
 }
 
 const PATCH_DEBOUNCE_MS = 400;
@@ -74,6 +77,8 @@ export default function TripEditor({
   claimed,
   softCap,
   shareBaseUrl,
+  members,
+  budget,
 }: Props) {
   const [trip, setTrip] = useState(initialTrip);
   const [stops, setStops] = useState<StopDto[]>(initialStops);
@@ -579,6 +584,13 @@ export default function TripEditor({
                 slower.
               </p>
             ) : null}
+
+            <BudgetPanel
+              tripId={trip.id}
+              claimed={claimed}
+              initialMembers={members}
+              initialSummary={budget}
+            />
           </div>
         </div>
       </div>

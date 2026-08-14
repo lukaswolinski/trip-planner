@@ -83,6 +83,16 @@ export const trips = pgTable(
      * recently pinned first) instead of falling back to an arbitrary tiebreak.
      */
     pinnedAt: timestamp('pinned_at', { withTimezone: true }),
+    /**
+     * Budget target in minor units (cents), or null when none is set.
+     *
+     * Integer cents, never a float: 0.1 + 0.2 !== 0.3 in binary floating point,
+     * and that error compounds across a split. Currency lives on the trip
+     * rather than the expense because mixing currencies needs exchange rates we
+     * do not have — one trip, one currency.
+     */
+    budgetTotalCents: integer('budget_total_cents'),
+    budgetCurrency: text('budget_currency').notNull().default('USD'),
     /** Optimistic concurrency: a stale writer gets a 409 instead of clobbering. */
     version: integer('version').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -139,6 +149,103 @@ export const stops = pgTable(
       'stops_profile_to_next_check',
       sql`${t.profileToNext} is null or ${t.profileToNext} in ('driving', 'walking')`,
     ),
+  ],
+);
+
+/**
+ * Who may edit a trip, besides its owner.
+ *
+ * `user_id` is null until the invitation is accepted, because we invite an
+ * email address and only learn the user when they sign in. That is also why an
+ * anonymous session can never be a member: membership binds to a user, and an
+ * anonymous visitor does not have one.
+ *
+ * Access is this row, not a token. Deleting it removes access on the very next
+ * request — there is nothing issued to revoke and nothing cached.
+ */
+export const tripMembers = pgTable(
+  'trip_members',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tripId: uuid('trip_id')
+      .notNull()
+      .references(() => trips.id, { onDelete: 'cascade' }),
+    /** Null while the invitation is pending. */
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    /** Lowercased by the application, like users.email. */
+    email: text('email').notNull(),
+    role: text('role').notNull().default('editor'),
+    invitedBy: uuid('invited_by').references(() => users.id, { onDelete: 'set null' }),
+    invitedAt: timestamp('invited_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Null means pending: invited, not yet signed in. */
+    acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+  },
+  (t) => [
+    // One invitation per address per trip; re-inviting updates rather than
+    // creating a second row.
+    uniqueIndex('trip_members_trip_email_key').on(t.tripId, t.email),
+    index('trip_members_trip_id_idx').on(t.tripId),
+    // Drives the authorization check on every write, so it must be indexed.
+    index('trip_members_user_id_idx').on(t.userId),
+    // Binding pending invitations at sign-in looks up by email.
+    index('trip_members_email_idx').on(t.email),
+    check('trip_members_role_check', sql`${t.role} in ('owner', 'editor')`),
+  ],
+);
+
+/** A single cost against a trip. Amounts are minor units (cents). */
+export const expenses = pgTable(
+  'expenses',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tripId: uuid('trip_id')
+      .notNull()
+      .references(() => trips.id, { onDelete: 'cascade' }),
+    description: text('description').notNull(),
+    amountCents: integer('amount_cents').notNull(),
+    /**
+     * Who paid. SET NULL rather than CASCADE: removing someone from the trip
+     * must not delete the record that money was spent — the expense still
+     * happened, it just no longer has a payer attached.
+     */
+    paidByMemberId: uuid('paid_by_member_id').references(() => tripMembers.id, {
+      onDelete: 'set null',
+    }),
+    /** Date only; a time of day is noise for an expense. */
+    spentOn: timestamp('spent_on', { withTimezone: true }),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('expenses_trip_id_idx').on(t.tripId),
+    check('expenses_amount_check', sql`${t.amountCents} > 0`),
+  ],
+);
+
+/**
+ * Who owes what on one expense.
+ *
+ * Stored rather than computed. If shares were derived from the current member
+ * list, adding a trip mate in week three would silently rewrite who owed what
+ * for a dinner in week one. An even split is a helper that writes these rows.
+ */
+export const expenseShares = pgTable(
+  'expense_shares',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    expenseId: uuid('expense_id')
+      .notNull()
+      .references(() => expenses.id, { onDelete: 'cascade' }),
+    memberId: uuid('member_id')
+      .notNull()
+      .references(() => tripMembers.id, { onDelete: 'cascade' }),
+    shareCents: integer('share_cents').notNull(),
+  },
+  (t) => [
+    uniqueIndex('expense_shares_expense_member_key').on(t.expenseId, t.memberId),
+    index('expense_shares_expense_id_idx').on(t.expenseId),
+    check('expense_shares_amount_check', sql`${t.shareCents} >= 0`),
   ],
 );
 

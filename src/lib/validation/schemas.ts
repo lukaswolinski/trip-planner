@@ -109,6 +109,38 @@ function build(limits: Limits) {
     orderedIds: z.array(z.uuid()).min(1).max(500),
   });
 
+  const inviteMember = z.object({
+    email: z
+      .string()
+      .trim()
+      .transform((value) => value.toLowerCase())
+      .pipe(z.email()),
+  });
+
+  /**
+   * Money is only ever accepted as an integer number of minor units.
+   *
+   * Taking a decimal would mean parsing "12.30" into cents on the server, and
+   * every such parse is a rounding decision waiting to be got wrong. The client
+   * converts once, at the input, where the user can see the result.
+   */
+  const cents = z.number().int();
+
+  const budgetAction = z.discriminatedUnion('action', [
+    z.object({
+      action: z.literal('setTotal'),
+      // Null clears the budget, which is different from a total of zero.
+      totalCents: cents.min(0).max(1_000_000_000).nullable(),
+    }),
+    z.object({
+      action: z.literal('addExpense'),
+      description: cleanLine(200).pipe(z.string().min(1)),
+      amountCents: cents.min(1).max(1_000_000_000),
+      paidByMemberId: z.uuid().nullish(),
+      splitBetween: z.array(z.uuid()).max(100).optional(),
+    }),
+  ]);
+
   const createStop = z.object({
     name: cleanLine(200).pipe(z.string().min(1)),
     address: cleanLine(300).nullish(),
@@ -168,6 +200,8 @@ function build(limits: Limits) {
     createItineraryItem,
     patchItineraryItem,
     reorderItinerary,
+    inviteMember,
+    budgetAction,
     createStop,
     patchStop,
     reorder,

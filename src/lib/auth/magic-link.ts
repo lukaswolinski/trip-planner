@@ -9,7 +9,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 import type { Database } from '@/lib/db';
-import { magicTokens, sessions, trips, users } from '@/lib/db/schema';
+import { magicTokens, sessions, tripMembers, trips, users } from '@/lib/db/schema';
 
 /** 15 minutes. Long enough to find the email, short enough to limit exposure. */
 const TOKEN_TTL_MS = 15 * 60 * 1000;
@@ -45,6 +45,8 @@ export interface VerifiedLogin {
   userId: string;
   email: string;
   claimedTripCount: number;
+  /** Invitations bound to this user by proving they hold the address. */
+  acceptedInviteCount: number;
 }
 
 /**
@@ -106,10 +108,25 @@ export async function verifyMagicToken(
       .where(and(eq(trips.sessionId, consumed.sessionId), isNull(trips.userId)))
       .returning({ id: trips.id });
 
+    /*
+     * Accept any invitations sent to this address.
+     *
+     * This is the ONLY place `accepted_at` is set, and that is deliberate:
+     * access to someone else's trip begins when a person demonstrates control
+     * of the mailbox, not when an invitation is sent to it. Sending an invite
+     * to an address you do not own therefore grants nothing.
+     */
+    const accepted = await tx
+      .update(tripMembers)
+      .set({ userId: user.id, acceptedAt: sql`now()` })
+      .where(and(eq(tripMembers.email, consumed.email), isNull(tripMembers.acceptedAt)))
+      .returning({ id: tripMembers.id });
+
     return {
       userId: user.id,
       email: user.email,
       claimedTripCount: claimed.length,
+      acceptedInviteCount: accepted.length,
     };
   });
 }

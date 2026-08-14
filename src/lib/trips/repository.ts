@@ -12,7 +12,7 @@
 
 import { and, asc, desc, eq, gt, gte, isNull, lt, or, sql, type SQL } from 'drizzle-orm';
 import type { Database } from '@/lib/db';
-import { stops, trips } from '@/lib/db/schema';
+import { stops, tripMembers, trips } from '@/lib/db/schema';
 import type { SessionContext } from '@/lib/auth/session';
 import type { TravelProfile } from '@/lib/limits';
 import { randomBytes } from 'node:crypto';
@@ -21,15 +21,55 @@ export type TripRow = typeof trips.$inferSelect;
 export type StopRow = typeof stops.$inferSelect;
 
 /**
- * A trip is reachable by the session that created it, or by the user who
- * claimed it. Both are checked because a claimed trip's `session_id` may later
- * be nulled by the cleanup sweep.
+ * A trip is reachable by the session that created it, by the user who claimed
+ * it, or by an accepted trip mate.
+ *
+ * ## Why this is safe to widen
+ *
+ * Everything here is derived from `context`, which comes from the signed,
+ * httpOnly session cookie — session, then the user that session belongs to. A
+ * value supplied in a URL cannot populate it.
+ *
+ * That is the whole reason the read-only share link stays read-only. A share
+ * slug is read by exactly one function, `getTripByShareSlug`, which returns a
+ * trip for rendering and nothing else; no write path anywhere accepts a slug,
+ * so a slug never enters this predicate. Adding membership widens *who the
+ * context may be*, not *what may supply identity*.
+ *
+ * Two consequences worth stating:
+ *
+ * - An anonymous visitor can never match the membership arm, because
+ *   `trip_members.user_id` is null until someone signs in. Opening a share link
+ *   without an account grants nothing.
+ * - Removing a member takes effect on the next request. Access is this row, not
+ *   a token that was handed out, so there is nothing to revoke and nothing
+ *   cached to expire.
  */
-function ownedBy(context: SessionContext): SQL {
+function editableBy(context: SessionContext): SQL {
   const bySession = eq(trips.sessionId, context.sessionId);
   if (!context.userId) return bySession;
-  return or(bySession, eq(trips.userId, context.userId))!;
+
+  const byUser = eq(trips.userId, context.userId);
+  // `accepted_at is not null` matters: a pending invitation is an invitation,
+  // not access. The address has been named but nobody has proved they hold it.
+  const byMembership = sql`exists (
+    select 1 from ${tripMembers}
+    where ${tripMembers.tripId} = ${trips.id}
+      and ${tripMembers.userId} = ${context.userId}
+      and ${tripMembers.acceptedAt} is not null
+  )`;
+
+  return or(bySession, byUser, byMembership)!;
 }
+
+/**
+ * Kept as the historical name used across this module.
+ *
+ * Deliberately a single alias rather than a find-and-replace: every call site
+ * that authorizes a trip goes through one predicate, so there is exactly one
+ * place to audit — and exactly one place a mistake could be made.
+ */
+const ownedBy = editableBy;
 
 export async function createTrip(
   db: Database,
