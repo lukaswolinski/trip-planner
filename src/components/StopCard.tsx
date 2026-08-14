@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { formatCoordinates } from '@/lib/coords';
@@ -65,12 +66,37 @@ export default function StopCard({
         </button>
 
         <div className="min-w-0 flex-1">
-          <input
-            value={stop.name}
-            onChange={(event) => onPatch(stop.id, { name: event.target.value })}
-            className="w-full truncate border-0 bg-transparent p-0 text-sm font-medium outline-none focus:ring-0"
-            aria-label="Stop name"
-          />
+          <div className="flex items-center gap-1">
+            <input
+              value={stop.name}
+              onChange={(event) => onPatch(stop.id, { name: event.target.value })}
+              className="min-w-0 flex-1 truncate border-0 bg-transparent p-0 text-sm font-medium outline-none focus:ring-0"
+              aria-label="Stop name"
+            />
+            {/*
+              A Link, not a button: the destination screen is a real page, so it
+              should be openable in a new tab and reachable by its own URL.
+            */}
+            <Link
+              href={`/trips/${stop.tripId}/stops/${stop.id}`}
+              title={`View destination: ${stop.name}`}
+              aria-label={`View destination: ${stop.name}`}
+              className="shrink-0 rounded p-1 text-black/40 hover:bg-black/5 hover:text-black/70 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white/80"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </Link>
+          </div>
           {stop.address ? (
             <p className="truncate text-xs text-black/50 dark:text-white/50">
               {stop.address}

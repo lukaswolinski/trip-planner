@@ -1,7 +1,7 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-// MapLibre GL JS v5 ships named exports only — there is no default export.
+// MapLibre GL JS v5 ships named exports only â€” there is no default export.
 // `Map` is aliased so it does not shadow the global Map constructor.
 import {
   LngLatBounds,
@@ -29,11 +29,16 @@ interface Props {
   flightSegments: readonly (readonly [number, number][])[];
   /**
    * Called when a selected marker is dragged to a new position. Omit to make
-   * markers fixed — the read-only share page does.
+   * markers fixed â€” the read-only share page does.
    */
   onStopMoved?: (stopId: string, lat: number, lng: number) => void;
   /** Called when the map is right-clicked, to add a stop there. */
   onAddStopAt?: (lat: number, lng: number) => void;
+  /**
+   * Backspace or Delete pressed while a marker is selected. The parent is
+   * expected to confirm before deleting.
+   */
+  onRequestDeleteStop?: (stopId: string) => void;
   className?: string;
 }
 
@@ -57,7 +62,7 @@ const STYLES = {
  * One override per theme, not a single one for both.
  *
  * A single NEXT_PUBLIC_MAP_STYLE_URL silently pinned the basemap to one style
- * and made the appearance setting unable to change it — the map stayed light
+ * and made the appearance setting unable to change it â€” the map stayed light
  * while the rest of the UI went dark.
  */
 function styleUrlFor(theme: 'light' | 'dark'): string {
@@ -97,7 +102,14 @@ const MARKER_IDLE = `${MARKER_BASE} border-white bg-blue-600 cursor-pointer`;
 
 /**
  * Selected: visibly larger with a ring, and the only marker that can be dragged.
- * The ring is the affordance — it is what tells you a drag will now move a stop.
+ * The ring is the affordance â€” it is what tells you a drag will now move a stop.
+ *
+ * âš ï¸ `scale-125` must land on the **inner** element, never the one MapLibre
+ * positions. Tailwind v4 compiles `scale-*` to the standalone CSS `scale`
+ * property, which the spec applies *before* `transform` â€” so it multiplies
+ * MapLibre's translation instead of just enlarging the dot. Measured: a marker
+ * at `translate(694px, 344px)` jumped 173.5px right and 86px down the moment it
+ * was selected, scaling with distance from the map origin.
  */
 const MARKER_SELECTED =
   `${MARKER_BASE} border-white bg-amber-500 cursor-grab active:cursor-grabbing ` +
@@ -121,7 +133,7 @@ type RouteData = {
  * always be created safely and simply holds nothing until there is a real route.
  *
  * Takes many segments rather than one line because a flight leg breaks the
- * route into disconnected runs, and each run must be its own feature — a single
+ * route into disconnected runs, and each run must be its own feature â€” a single
  * LineString through all of them would draw the gap as though it were road.
  */
 function routeData(segments: readonly (readonly [number, number][])[]): RouteData {
@@ -237,10 +249,24 @@ function ensureRoute(
   }
 }
 
+/**
+ * True when the event came from somewhere the user is entering text, so a
+ * destructive shortcut must not fire.
+ */
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  const tag = target.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+}
+
 interface MarkerRecord {
   stopId: string;
   marker: Marker;
+  /** Outer element MapLibre positions. Must carry no transform of its own. */
   el: HTMLDivElement;
+  /** Inner element carrying every visual class, including the selected scale. */
+  inner: HTMLDivElement;
 }
 
 /**
@@ -248,7 +274,7 @@ interface MarkerRecord {
  *
  * Uses classList rather than assigning `className`. MapLibre adds its own
  * `maplibregl-marker` classes to the element *after* construction, and
- * overwriting className stripped them — the markers stayed visible but stopped
+ * overwriting className stripped them â€” the markers stayed visible but stopped
  * being MapLibre markers as far as the DOM was concerned.
  *
  * Kept at module scope because the React Compiler rejects mutating a value that
@@ -257,11 +283,12 @@ interface MarkerRecord {
 function paintMarker(record: MarkerRecord, name: string, isSelected: boolean): void {
   const next = isSelected ? MARKER_SELECTED : MARKER_IDLE;
   const previous = isSelected ? MARKER_IDLE : MARKER_SELECTED;
-  record.el.classList.remove(...previous.split(' ').filter(Boolean));
-  record.el.classList.add(...next.split(' ').filter(Boolean));
+  // Painted on the inner element, never the outer one â€” see MARKER_SELECTED.
+  record.inner.classList.remove(...previous.split(' ').filter(Boolean));
+  record.inner.classList.add(...next.split(' ').filter(Boolean));
   record.el.title = isSelected
-    ? `${name} — drag to move, Esc to cancel`
-    : `${name} — click to move`;
+    ? `${name} â€” drag to move, Esc to cancel`
+    : `${name} â€” click to move`;
 }
 
 export default function TripMap({
@@ -270,15 +297,16 @@ export default function TripMap({
   flightSegments,
   onStopMoved,
   onAddStopAt,
+  onRequestDeleteStop,
   className,
 }: Props) {
-  // Read from context rather than a prop, so the read-only share page — which is
-  // a Server Component and cannot pass one — is themed too.
+  // Read from context rather than a prop, so the read-only share page â€” which is
+  // a Server Component and cannot pass one â€” is themed too.
   const { resolved: theme } = useTheme();
   /**
    * The map lives in state, created by a callback ref rather than an effect.
    *
-   * With the instance in a ref, every other effect had to guess when it existed —
+   * With the instance in a ref, every other effect had to guess when it existed â€”
    * and after React's Strict Mode remount in development the map was rebuilt
    * while the marker effect did not re-run (its dependencies had not changed), so
    * no markers appeared at all. It only ever worked by accident, because `stops`
@@ -306,6 +334,7 @@ export default function TripMap({
     stops,
     onStopMoved,
     onAddStopAt,
+    onRequestDeleteStop,
   });
   useEffect(() => {
     latest.current = {
@@ -315,6 +344,7 @@ export default function TripMap({
       stops,
       onStopMoved,
       onAddStopAt,
+      onRequestDeleteStop,
     };
   });
 
@@ -339,7 +369,9 @@ export default function TripMap({
       dragRotate: false,
       pitchWithRotate: false,
       touchPitch: false,
-      scrollZoom: { around: 'center' },
+      // Scroll-zoom deliberately left at the MapLibre default, which anchors on
+      // the pointer. `{ around: 'center' }` zoomed the middle of the viewport
+      // instead, so pointing at a stop and scrolling walked away from it.
     });
 
     instance.addControl(new NavigationControl({ showCompass: false }), 'top-right');
@@ -384,12 +416,36 @@ export default function TripMap({
     };
   }, []);
 
-  // Escape disarms the selection without touching the map.
+  /**
+   * Keyboard shortcuts for the selected marker: Escape disarms, Backspace or
+   * Delete removes the stop.
+   *
+   * Both delete keys are accepted because Mac keyboards label the main key
+   * "delete" while sending Backspace. The typing guard is the important part:
+   * without it, Backspace while editing a note or the trip title would delete
+   * the stop instead of a character. `preventDefault` stops the browser acting
+   * on Backspace itself once we have claimed it.
+   *
+   * Deletion goes through the same confirmation dialog as the Remove button
+   * rather than deleting outright â€” a keystroke is exactly the kind of input
+   * that gets pressed by accident.
+   */
   useEffect(() => {
     if (!selectedId) return;
+
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setSelectedId(null);
+      if (event.key === 'Escape') {
+        setSelectedId(null);
+        return;
+      }
+      if (event.key !== 'Backspace' && event.key !== 'Delete') return;
+      if (isTypingTarget(event.target)) return;
+
+      event.preventDefault();
+      latest.current.onRequestDeleteStop?.(selectedId);
+      setSelectedId(null);
     };
+
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [selectedId]);
@@ -405,7 +461,7 @@ export default function TripMap({
    * Push new geometry whenever it changes.
    *
    * `isStyleLoaded()` stays false while sprites and glyphs are still loading,
-   * which is long after `addSource` would succeed — so a summary arriving in
+   * which is long after `addSource` would succeed â€” so a summary arriving in
    * that window used to be dropped on the floor and never retried, because
    * `styledata` had already fired for the last time. The route then simply
    * never appeared, with no error anywhere. Deferring to the next `idle`
@@ -429,7 +485,7 @@ export default function TripMap({
     };
   }, [mapInstance, roadSegments, flightSegments, theme]);
 
-  /** Identity of the stop set — changes on add, remove and reorder only. */
+  /** Identity of the stop set â€” changes on add, remove and reorder only. */
   const fitKey = useMemo(() => stops.map((s) => s.id).join('|'), [stops]);
 
   /** Positions, so markers move when coordinates change without rebuilding. */
@@ -445,20 +501,41 @@ export default function TripMap({
 
     markers.current.forEach((m) => m.marker.remove());
     markers.current = latest.current.stops.map((stop, index) => {
+      // Two elements on purpose: MapLibre transforms the outer one to position
+      // it, so any transform-ish utility here (scale, rotate, translate) would
+      // compose with that and move the marker. All appearance goes on `inner`.
       const el = document.createElement('div');
-      el.className = MARKER_IDLE;
-      el.textContent = String(index + 1);
       el.title = stop.name;
+
+      const inner = document.createElement('div');
+      inner.className = MARKER_IDLE;
+      inner.textContent = String(index + 1);
+      el.appendChild(inner);
 
       const marker = new Marker({ element: el, draggable: false })
         .setLngLat([stop.lng, stop.lat])
         .addTo(instance);
 
       if (canDrag) {
-        // Click selects. stopPropagation keeps the map's own click — which
-        // deselects — from immediately undoing it.
+        // Click selects. stopPropagation keeps the map's own click â€” which
+        // deselects â€” from immediately undoing it.
         el.addEventListener('click', (event) => {
           event.stopPropagation();
+          /*
+           * Take focus off any text field first.
+           *
+           * MapLibre calls preventDefault on mousedown to drive its own
+           * gestures, which means clicking the map does NOT blur a focused
+           * input the way clicking normal page furniture would. Focus stayed in
+           * the search box, so the Backspace shortcut below was correctly
+           * suppressed by the typing guard and the feature was unreachable
+           * whenever the user had typed anything. Selecting a marker is a
+           * deliberate move of attention to the map, so dropping the caret is
+           * also the behaviour you would expect.
+           */
+          const active = document.activeElement;
+          if (isTypingTarget(active) && active instanceof HTMLElement) active.blur();
+
           setSelectedId((current) => (current === stop.id ? null : stop.id));
         });
 
@@ -470,11 +547,11 @@ export default function TripMap({
         });
       }
 
-      return { stopId: stop.id, marker, el };
+      return { stopId: stop.id, marker, el, inner };
     });
   }, [mapInstance, fitKey, canDrag]);
 
-  // Move existing markers when coordinates change — no rebuild, so an in-flight
+  // Move existing markers when coordinates change â€” no rebuild, so an in-flight
   // drag is never destroyed.
   useEffect(() => {
     for (const record of markers.current) {
@@ -497,7 +574,7 @@ export default function TripMap({
    * Auto-fit depends on `fitKey` ALONE.
    *
    * This is the bug behind "the map keeps re-zooming". `fitKey` was already
-   * stable, but `stops` was also in this dependency array — and `stops` is a
+   * stable, but `stops` was also in this dependency array â€” and `stops` is a
    * fresh array on every parent render. So typing a note or moving a marker
    * re-ran the effect and re-fit the camera even though the stop set had not
    * changed. Coordinates are read from the ref instead, which is not a
@@ -542,7 +619,7 @@ export default function TripMap({
       {/*
         `h-full w-full`, NOT `absolute inset-0`: maplibre-gl.css sets
         `.maplibregl-map { position: relative }` on the container, which beats
-        Tailwind's `absolute` and left `inset-0` doing nothing — the map
+        Tailwind's `absolute` and left `inset-0` doing nothing â€” the map
         collapsed to 56px tall. Explicit sizing is not overridden.
       */}
       <div ref={containerRef} className="h-full w-full" />
@@ -550,13 +627,13 @@ export default function TripMap({
       {/* Hint chips. pointer-events-none so they never block the map. */}
       {canAdd && !selectedName ? (
         <div className="pointer-events-none absolute left-2 top-2 rounded-md bg-black/65 px-2 py-1 text-[11px] font-medium text-white shadow">
-          Right-click the map to add a stop · click a marker to move it
+          Right-click the map to add a stop Â· click a marker to move it
         </div>
       ) : null}
 
       {selectedName ? (
         <div className="absolute left-2 top-2 flex items-center gap-2 rounded-md bg-amber-500 px-2 py-1 text-[11px] font-semibold text-white shadow">
-          <span>Drag “{selectedName}” to move it</span>
+          <span>Drag â€œ{selectedName}â€ to move it</span>
           <button
             type="button"
             onClick={deselect}

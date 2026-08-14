@@ -1,5 +1,5 @@
-/**
- * Mapbox Geocoding v6 — retained behind the provider interface.
+﻿/**
+ * Mapbox Geocoding v6 â€” retained behind the provider interface.
  *
  * `permanent=true` is mandatory here, not an optimisation: we persist the
  * returned coordinates in `stops`, and Mapbox's *temporary* geocoding terms
@@ -9,7 +9,7 @@
 import 'server-only';
 
 import { mapboxSecretToken } from '@/lib/routing/providers/mapbox-transport';
-import { classifyFeature, rankByTier } from './rank';
+import { classifyFeature, rankResults } from './rank';
 import type { GeocodeOptions, GeocodeResult, Geocoder } from './types';
 
 const GEOCODE_FORWARD = 'https://api.mapbox.com/search/geocode/v6/forward';
@@ -104,7 +104,7 @@ function toResults(data: MapboxGeocodeResponse): GeocodeResult[] {
     const lat = p?.coordinates?.latitude;
     if (typeof lng !== 'number' || typeof lat !== 'number') continue;
     // Mapbox has no osm_key/osm_value; its feature_type maps onto the same tiers.
-    const { tier, label } = classifyFeature({ type: p?.feature_type });
+    const { tier, label, placeRank } = classifyFeature({ type: p?.feature_type });
     results.push({
       name: p?.name_preferred ?? p?.name ?? 'Unnamed place',
       address: p?.full_address ?? p?.place_formatted ?? null,
@@ -112,7 +112,8 @@ function toResults(data: MapboxGeocodeResponse): GeocodeResult[] {
       lat,
       kind: label,
       tier,
+      placeRank,
     });
   }
-  return rankByTier(results);
+  return rankResults(results);
 }

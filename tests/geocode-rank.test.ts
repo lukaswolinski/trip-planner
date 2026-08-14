@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Ranking and labelling geocoder results.
  *
  * The fixtures are real Photon output, captured from the live service for the
@@ -6,21 +6,21 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { TIER, classifyFeature, rankByTier } from '@/lib/geocoding/rank';
+import { TIER, classifyFeature, rankResults } from '@/lib/geocoding/rank';
 
 describe('classifying features', () => {
   it('treats settlements as the best kind of stop', () => {
-    expect(classifyFeature({ type: 'city', osmKey: 'place', osmValue: 'city' })).toEqual({
+    expect(classifyFeature({ type: 'city', osmKey: 'place', osmValue: 'city' })).toMatchObject({
       tier: TIER.settlement,
       label: 'City',
     });
-    expect(classifyFeature({ type: 'city', osmKey: 'place', osmValue: 'town' })).toEqual({
+    expect(classifyFeature({ type: 'city', osmKey: 'place', osmValue: 'town' })).toMatchObject({
       tier: TIER.settlement,
       label: 'Town',
     });
     expect(
       classifyFeature({ type: 'city', osmKey: 'place', osmValue: 'village' }),
-    ).toEqual({ tier: TIER.settlement, label: 'Village' });
+    ).toMatchObject({ tier: TIER.settlement, label: 'Village' });
   });
 
   it('demotes a county even though Photon calls it place=county', () => {
@@ -28,23 +28,23 @@ describe('classifying features', () => {
     // "is it a place?" check would treat it as a settlement.
     expect(
       classifyFeature({ type: 'county', osmKey: 'place', osmValue: 'county' }),
-    ).toEqual({ tier: TIER.administrative, label: 'County' });
+    ).toMatchObject({ tier: TIER.administrative, label: 'County' });
   });
 
   it('demotes administrative and statistical boundaries', () => {
     expect(
       classifyFeature({ type: 'county', osmKey: 'boundary', osmValue: 'administrative' }),
-    ).toEqual({ tier: TIER.administrative, label: 'Admin area' });
+    ).toMatchObject({ tier: TIER.administrative, label: 'Admin area' });
     expect(
       classifyFeature({ type: 'other', osmKey: 'boundary', osmValue: 'statistical' }),
-    ).toEqual({ tier: TIER.administrative, label: 'Metro area' });
+    ).toMatchObject({ tier: TIER.administrative, label: 'Metro area' });
   });
 
   it('keeps a national park as a destination, not a region', () => {
     // "San Antonio Missions National Historical Park" is somewhere you go.
     expect(
       classifyFeature({ type: 'other', osmKey: 'boundary', osmValue: 'protected_area' }),
-    ).toEqual({ tier: TIER.feature, label: 'Protected area' });
+    ).toMatchObject({ tier: TIER.feature, label: 'Protected area' });
   });
 
   it('labels named features by their specific value', () => {
@@ -57,24 +57,24 @@ describe('classifying features', () => {
     );
     expect(classifyFeature({ osmKey: 'waterway', osmValue: 'river' }).label).toBe('River');
     // Trailheads and campsites are the point of the app; they must stay usable.
-    expect(classifyFeature({ osmKey: 'tourism', osmValue: 'camp_site' })).toEqual({
+    expect(classifyFeature({ osmKey: 'tourism', osmValue: 'camp_site' })).toMatchObject({
       tier: TIER.feature,
       label: 'Camp Site',
     });
   });
 
   it('handles suburbs and localities as sub-places', () => {
-    expect(classifyFeature({ type: 'district', osmKey: 'place', osmValue: 'suburb' })).toEqual(
-      { tier: TIER.feature, label: 'Suburb' },
-    );
+    expect(
+      classifyFeature({ type: 'district', osmKey: 'place', osmValue: 'suburb' }),
+    ).toMatchObject({ tier: TIER.feature, label: 'Suburb' });
   });
 
   it('maps Mapbox feature_type values with no osm fields', () => {
-    expect(classifyFeature({ type: 'place' })).toEqual({
+    expect(classifyFeature({ type: 'place' })).toMatchObject({
       tier: TIER.settlement,
       label: 'City',
     });
-    expect(classifyFeature({ type: 'region' })).toEqual({
+    expect(classifyFeature({ type: 'region' })).toMatchObject({
       tier: TIER.administrative,
       label: 'Region',
     });
@@ -82,7 +82,7 @@ describe('classifying features', () => {
   });
 
   it('never throws on empty or unknown input', () => {
-    expect(classifyFeature({})).toEqual({ tier: TIER.feature, label: 'Place' });
+    expect(classifyFeature({})).toMatchObject({ tier: TIER.feature, label: 'Place' });
     expect(classifyFeature({ type: 'wat', osmKey: 'zzz', osmValue: 'qqq' }).label).toBe('Qqq');
   });
 });
@@ -98,7 +98,7 @@ describe('ranking', () => {
   ];
 
   it('puts the city first and the county below every real place', () => {
-    const ranked = rankByTier(houston);
+    const ranked = rankResults(houston);
     expect(ranked[0].name).toBe('Houston');
     expect(ranked[0].lat).toBeCloseTo(29.7589, 4);
 
@@ -111,7 +111,7 @@ describe('ranking', () => {
 
   it('preserves the provider order within a tier', () => {
     // The provider's relevance ranking is usually right; we only demote regions.
-    const ranked = rankByTier(houston);
+    const ranked = rankResults(houston);
     const settlements = ranked.filter((r) => r.tier === TIER.settlement).map((r) => r.name);
     expect(settlements).toEqual(['Houston', 'Houston MO']);
   });
@@ -122,19 +122,56 @@ describe('ranking', () => {
       { name: 'San Antonio CL', ...classifyFeature({ type: 'city', osmKey: 'place', osmValue: 'city' }) },
       { name: 'San Antonio Huitepec', ...classifyFeature({ type: 'county', osmKey: 'boundary', osmValue: 'administrative' }) },
       { name: 'San Antonio Sinicahua', ...classifyFeature({ type: 'county', osmKey: 'boundary', osmValue: 'administrative' }) },
-      { name: 'San Antonio de Benagéber', ...classifyFeature({ type: 'city', osmKey: 'place', osmValue: 'village' }) },
+      { name: 'San Antonio de BenagÃ©ber', ...classifyFeature({ type: 'city', osmKey: 'place', osmValue: 'village' }) },
     ];
-    const ranked = rankByTier(sanAntonio).map((r) => r.name);
+    const ranked = rankResults(sanAntonio).map((r) => r.name);
     expect(ranked.slice(0, 3)).toEqual([
       'San Antonio TX',
       'San Antonio CL',
-      'San Antonio de Benagéber',
+      'San Antonio de BenagÃ©ber',
     ]);
+  });
+
+  it('ranks a city above a same-named village', () => {
+    // The Munich bug: both are settlements, so the tier alone could not
+    // separate them and the North Dakota village won on an exact string match.
+    // OSM already calls one a city and the other a village.
+    const munich = [
+      { name: 'Munich ND', ...classifyFeature({ type: 'city', osmKey: 'place', osmValue: 'village' }) },
+      { name: 'Munich DE', ...classifyFeature({ type: 'city', osmKey: 'place', osmValue: 'city' }) },
+    ];
+    expect(rankResults(munich).map((r) => r.name)).toEqual(['Munich DE', 'Munich ND']);
+  });
+
+  it('orders settlement classes city, town, village, hamlet', () => {
+    const mixed = [
+      { name: 'hamlet', ...classifyFeature({ osmKey: 'place', osmValue: 'hamlet' }) },
+      { name: 'village', ...classifyFeature({ osmKey: 'place', osmValue: 'village' }) },
+      { name: 'city', ...classifyFeature({ osmKey: 'place', osmValue: 'city' }) },
+      { name: 'town', ...classifyFeature({ osmKey: 'place', osmValue: 'town' }) },
+    ];
+    expect(rankResults(mixed).map((r) => r.name)).toEqual([
+      'city',
+      'town',
+      'village',
+      'hamlet',
+    ]);
+  });
+
+  it('keeps the provider order between two places of the same class', () => {
+    // Florence, Italy and Florence, South Carolina are both place=city. Nothing
+    // here should reorder them — Photon with lang=en already puts Italy first,
+    // and a size tiebreak measurably got this wrong.
+    const florence = [
+      { name: 'Florence IT', ...classifyFeature({ osmKey: 'place', osmValue: 'city' }) },
+      { name: 'Florence SC', ...classifyFeature({ osmKey: 'place', osmValue: 'city' }) },
+    ];
+    expect(rankResults(florence).map((r) => r.name)).toEqual(['Florence IT', 'Florence SC']);
   });
 
   it('does not mutate its input', () => {
     const input = [...houston];
-    rankByTier(input);
+    rankResults(input);
     expect(input.map((r) => r.name)).toEqual(houston.map((r) => r.name));
   });
 });

@@ -35,6 +35,8 @@ export interface TripListItem {
   version: number;
   updatedAt: string;
   stopCount: number;
+  /** ISO timestamp when pinned, or null. Pinned trips sort to the top. */
+  pinnedAt: string | null;
 }
 
 export interface SummaryLegDto {

@@ -31,6 +31,7 @@ export default async function AppLayout({ children }: LayoutProps<'/'>) {
       ...trip,
       defaultProfile: trip.defaultProfile as TripListItem['defaultProfile'],
       updatedAt: trip.updatedAt.toISOString(),
+      pinnedAt: trip.pinnedAt?.toISOString() ?? null,
     }));
   } catch (error) {
     // Most likely DATABASE_URL is unset. Say so plainly rather than showing a

@@ -40,17 +40,32 @@ export interface FeatureClass {
   tier: Tier;
   /** Short label for the UI, e.g. "City", "County", "Protected area". */
   label: string;
+  /**
+   * Ordering *within* a tier, lower first: city before town before village.
+   * Non-settlements all share NON_SETTLEMENT_RANK.
+   */
+  placeRank: number;
 }
 
-/** place=* values that are settlements, best first. */
-const SETTLEMENT_VALUES: Record<string, string> = {
-  city: 'City',
-  town: 'Town',
-  village: 'Village',
-  hamlet: 'Hamlet',
-  borough: 'Borough',
-  municipality: 'Municipality',
+/**
+ * place=* values that are settlements, with OSM's own size ordering.
+ *
+ * This is the fix for "Munich" landing on Munich, North Dakota: both it and
+ * München are settlements, so the tier alone could not separate them and the
+ * provider's order won. OSM already classifies one `place=city` and the other
+ * `place=village` — that distinction just was not being used.
+ */
+const SETTLEMENT_VALUES: Record<string, { label: string; rank: number }> = {
+  city: { label: 'City', rank: 0 },
+  municipality: { label: 'Municipality', rank: 1 },
+  borough: { label: 'Borough', rank: 2 },
+  town: { label: 'Town', rank: 3 },
+  village: { label: 'Village', rank: 4 },
+  hamlet: { label: 'Hamlet', rank: 5 },
 };
+
+/** Anything that is not a settlement sorts after every settlement class. */
+export const NON_SETTLEMENT_RANK = 10;
 
 /** place=* values that describe part of a settlement. */
 const SUBPLACE_VALUES: Record<string, string> = {
@@ -106,13 +121,26 @@ function titleCase(value: string): string {
  * `place=county` and would otherwise be mistaken for a place.
  */
 export function classifyFeature(input: FeatureClassInput): FeatureClass {
+  // Everything defaults to the non-settlement rank; only the branches that
+  // identify a settlement class override it.
+  return { placeRank: NON_SETTLEMENT_RANK, ...classify(input) };
+}
+
+function classify(
+  input: FeatureClassInput,
+): Omit<FeatureClass, 'placeRank'> & { placeRank?: number } {
   const type = (input.type ?? '').toLowerCase();
   const key = (input.osmKey ?? '').toLowerCase();
   const value = (input.osmValue ?? '').toLowerCase();
 
   // 1. Settlements.
-  if (key === 'place' && SETTLEMENT_VALUES[value]) {
-    return { tier: TIER.settlement, label: SETTLEMENT_VALUES[value] };
+  const settlement = SETTLEMENT_VALUES[value];
+  if (key === 'place' && settlement) {
+    return {
+      tier: TIER.settlement,
+      label: settlement.label,
+      placeRank: settlement.rank,
+    };
   }
 
   // 2. Administrative areas, however they are spelled.
@@ -142,13 +170,13 @@ export function classifyFeature(input: FeatureClassInput): FeatureClass {
   // 5. Fall back to the provider's coarse type. Mapbox uses these directly.
   switch (type) {
     case 'city':
-      return { tier: TIER.settlement, label: 'City' };
+      return { tier: TIER.settlement, label: 'City', placeRank: 0 };
     case 'place':
-      return { tier: TIER.settlement, label: 'City' };
+      return { tier: TIER.settlement, label: 'City', placeRank: 0 };
     case 'town':
-      return { tier: TIER.settlement, label: 'Town' };
+      return { tier: TIER.settlement, label: 'Town', placeRank: 3 };
     case 'village':
-      return { tier: TIER.settlement, label: 'Village' };
+      return { tier: TIER.settlement, label: 'Village', placeRank: 4 };
     case 'locality':
       return { tier: TIER.feature, label: 'Locality' };
     case 'district':
@@ -175,15 +203,33 @@ export function classifyFeature(input: FeatureClassInput): FeatureClass {
   }
 }
 
+export interface Rankable {
+  tier: number;
+  placeRank: number;
+}
+
 /**
- * Sorts by tier only, preserving the provider's order inside each tier.
+ * Orders results: tier, then settlement class, then the provider's own order.
  *
- * Deliberately minimal: the provider's relevance ranking is usually good — for
- * "Houston, Texas" it already put the city first — so this only demotes
- * administrative areas rather than trying to re-score everything.
- * `Array.prototype.sort` is stable in modern JS, which is what preserves the
- * within-tier order.
+ * `Array.prototype.sort` is stable, so equal-scoring results keep the order the
+ * provider returned them in — which, once `lang=en` is sent, is good.
+ *
+ * ## Why there is no size or population weighting
+ *
+ * Photon returns no population field. Its `extent` bounding box looked like a
+ * usable proxy (Munich, Germany covers ~90x the area of Munich, North Dakota),
+ * so it was built and measured against the five known-bad queries.
+ *
+ * **It made things worse.** Florence, South Carolina has a larger bounding box
+ * than Florence, Italy — both are `place=city`, so the size tiebreak promoted
+ * the wrong one and turned a correct result into a regression. Physical
+ * footprint tracks municipal boundary drawing, not importance: sprawling
+ * low-density towns out-measure dense famous cities routinely.
+ *
+ * Sending `lang=en` plus the settlement-class ordering resolves all five
+ * (Munich, Florence, Vienna, Naples, Cologne) on its own. Don't re-add extent
+ * weighting without a population source to check it against.
  */
-export function rankByTier<T extends { tier: number }>(results: readonly T[]): T[] {
-  return [...results].sort((a, b) => a.tier - b.tier);
+export function rankResults<T extends Rankable>(results: readonly T[]): T[] {
+  return [...results].sort((a, b) => a.tier - b.tier || a.placeRank - b.placeRank);
 }

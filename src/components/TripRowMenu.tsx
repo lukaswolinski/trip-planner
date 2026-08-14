@@ -6,6 +6,9 @@ interface Props {
   onRename: () => void;
   onShare: () => void;
   onDelete: () => void;
+  onTogglePin: () => void;
+  /** Drives the label: pinning and unpinning share one menu slot. */
+  pinned: boolean;
   onClose: () => void;
 }
 
@@ -16,7 +19,14 @@ interface Props {
  * `pointerdown` rather than `click` for the outside check, so the menu is gone
  * before the click lands on whatever is underneath.
  */
-export default function TripRowMenu({ onRename, onShare, onDelete, onClose }: Props) {
+export default function TripRowMenu({
+  onRename,
+  onShare,
+  onDelete,
+  onTogglePin,
+  pinned,
+  onClose,
+}: Props) {
   const menu = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -43,6 +53,9 @@ export default function TripRowMenu({ onRename, onShare, onDelete, onClose }: Pr
       role="menu"
       className="absolute right-1 top-7 z-30 w-32 overflow-hidden rounded-lg border border-black/10 bg-white py-1 shadow-lg dark:border-white/15 dark:bg-neutral-900"
     >
+      <button type="button" role="menuitem" className={item} onClick={onTogglePin}>
+        {pinned ? 'Unpin' : 'Pin to top'}
+      </button>
       <button type="button" role="menuitem" className={item} onClick={onRename}>
         Rename
       </button>

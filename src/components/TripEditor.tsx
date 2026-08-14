@@ -47,6 +47,25 @@ const PATCH_DEBOUNCE_MS = 400;
  */
 const EMPTY_SEGMENTS: readonly (readonly [number, number][])[] = [];
 
+/** Inline so the page carries no icon dependency. */
+function LinkIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M10 13a5 5 0 0 0 7.07 0l3-3A5 5 0 0 0 13 3l-1.5 1.5" />
+      <path d="M14 11a5 5 0 0 0-7.07 0l-3 3A5 5 0 0 0 11 21l1.5-1.5" />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
 export default function TripEditor({
   trip: initialTrip,
   initialStops,
@@ -422,26 +441,54 @@ export default function TripEditor({
             holding the title purely in state would keep showing the old name
             after an external change.
           */}
-          <input
-            value={titleFocused ? titleDraft : initialTrip.title}
-            onFocus={() => {
-              setTitleDraft(initialTrip.title);
-              setTitleFocused(true);
-            }}
-            onChange={(event) => setTitleDraft(event.target.value)}
-            onBlur={(event) => {
-              setTitleFocused(false);
-              saveTitle(event.target.value.trim() || 'Untitled trip');
-            }}
-            className="min-w-0 flex-1 border-0 bg-transparent p-0 text-xl font-semibold outline-none"
-            aria-label="Trip title"
-          />
+          {/*
+            The title looked like plain text, so nothing suggested it could be
+            edited. The wrapper supplies a hover box and a pencil hint — on the
+            group rather than the input, so hovering anywhere along the title
+            row reveals it.
+          */}
+          <div className="group relative min-w-0 flex-1">
+            <input
+              value={titleFocused ? titleDraft : initialTrip.title}
+              onFocus={() => {
+                setTitleDraft(initialTrip.title);
+                setTitleFocused(true);
+              }}
+              onChange={(event) => setTitleDraft(event.target.value)}
+              onBlur={(event) => {
+                setTitleFocused(false);
+                saveTitle(event.target.value.trim() || 'Untitled trip');
+              }}
+              title="Click to rename this trip"
+              className="w-full rounded-md border border-transparent bg-transparent px-2 py-1 pr-16 text-xl font-semibold outline-none transition-colors group-hover:border-black/10 group-hover:bg-black/[0.03] focus:border-blue-500 focus:bg-transparent dark:group-hover:border-white/15 dark:group-hover:bg-white/[0.06]"
+              aria-label="Trip title"
+            />
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 right-2 flex items-center gap-1 text-xs text-black/45 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-0 dark:text-white/45"
+            >
+              <PencilIcon />
+              Edit
+            </span>
+          </div>
           <button
             type="button"
             onClick={() => setShareOpenLocal(true)}
-            className="shrink-0 rounded-lg border border-black/15 px-3 py-1.5 text-sm font-medium hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            title={trip.shareSlug ? 'Share link' : 'Share this trip'}
+            aria-label={trip.shareSlug ? 'Share link' : 'Share this trip'}
+            className="relative shrink-0 rounded-lg border border-black/15 p-2 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
           >
-            {trip.shareSlug ? 'Share link' : 'Share'}
+            <LinkIcon />
+            {/*
+              A dot rather than a second colour: it marks "a link already
+              exists" without turning the control into a status badge.
+            */}
+            {trip.shareSlug ? (
+              <span
+                aria-hidden
+                className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-blue-600 dark:bg-blue-400"
+              />
+            ) : null}
           </button>
         </header>
 
@@ -546,6 +593,9 @@ export default function TripEditor({
           flightSegments={summary?.flightSegments ?? EMPTY_SEGMENTS}
           onStopMoved={moveStop}
           onAddStopAt={addStopAt}
+          onRequestDeleteStop={(stopId) =>
+            setPendingRemove(stops.find((s) => s.id === stopId) ?? null)
+          }
           className="h-full w-full"
         />
       </div>

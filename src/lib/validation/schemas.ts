@@ -76,6 +76,8 @@ function build(limits: Limits) {
   const patchTrip = z.object({
     title: title.optional(),
     defaultProfile: profile.optional(),
+    /** Pin to the top of the trip list. Stored as a timestamp server-side. */
+    pinned: z.boolean().optional(),
     /** Optimistic concurrency: the version the client last read. */
     version: z.number().int().min(0),
   });

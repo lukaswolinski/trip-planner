@@ -77,7 +77,12 @@ export const api = {
 
   patchTrip: (
     tripId: string,
-    json: { title?: string; defaultProfile?: TravelProfile; version: number },
+    json: {
+      title?: string;
+      defaultProfile?: TravelProfile;
+      pinned?: boolean;
+      version: number;
+    },
   ) => call<{ trip: TripDto }>(`/api/trips/${tripId}`, { method: 'PATCH', json }),
 
   addStop: (

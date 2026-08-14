@@ -1,5 +1,5 @@
-/**
- * Photon (komoot) geocoding — the keyless default.
+﻿/**
+ * Photon (komoot) geocoding â€” the keyless default.
  *
  * Photon rather than Nominatim because it is purpose-built for type-ahead
  * search, which is exactly what the stop search box does. Nominatim's usage
@@ -7,7 +7,7 @@
  * avoided; Photon is the OSM-ecosystem answer for that shape of query.
  *
  * Data is OSM under ODbL, so unlike Mapbox's temporary geocoding there is no
- * restriction on storing the returned coordinates — which is what our `stops`
+ * restriction on storing the returned coordinates â€” which is what our `stops`
  * table does by definition. Attribution is required.
  *
  * The response is a GeoJSON FeatureCollection. Verified shape:
@@ -24,10 +24,16 @@ import 'server-only';
 
 import { createThrottle } from '@/lib/routing/throttle';
 import { osmUserAgent } from '@/lib/routing/providers/osrm';
-import { classifyFeature, rankByTier } from './rank';
+import { classifyFeature, rankResults } from './rank';
 import type { GeocodeOptions, GeocodeResult, Geocoder } from './types';
 
 const DEFAULT_BASE_URL = 'https://photon.komoot.io';
+
+/**
+ * Photon supports en, de and fr. English is the only one of those that helps a
+ * general audience search for European cities by their English exonyms.
+ */
+const PHOTON_LANG = 'en';
 
 function baseUrl(): string {
   return (process.env.PHOTON_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/+$/, '');
@@ -51,6 +57,8 @@ interface PhotonFeature {
     type?: string;
     osm_key?: string;
     osm_value?: string;
+    /** [west, north, east, south]; present for areas, absent for points. */
+    extent?: number[];
   };
 }
 
@@ -61,6 +69,14 @@ export function createPhotonGeocoder(): Geocoder {
       const params = new URLSearchParams({
         q: query,
         limit: String(options.limit ?? 5),
+        // `lang` is what makes alternate names searchable, and it does more
+        // work than any ranking rule here. Without it, "Munich" never matches
+        // MÃ¼nchen (whose OSM name is German) so a North Dakota village wins on
+        // an exact string match; "Cologne" returns no German result at all in
+        // the top six. With lang=en, all of Munich, Florence, Vienna, Naples
+        // and Cologne resolve to the European city first. Names come back in
+        // English too, which is what the user typed.
+        lang: PHOTON_LANG,
       });
       if (options.proximity) {
         params.set('lat', String(options.proximity.lat));
@@ -81,8 +97,9 @@ export function createPhotonGeocoder(): Geocoder {
       }
 
       const data = (await response.json()) as { features?: PhotonFeature[] };
-      // Demote counties, states and boundaries below real settlements.
-      return rankByTier((data.features ?? []).flatMap(toResult));
+      // Demote counties and boundaries below settlements, then order
+      // settlements city-before-town-before-village.
+      return rankResults((data.features ?? []).flatMap(toResult));
     },
 
     /** Photon exposes /reverse; one request, same courtesy throttle. */
@@ -118,7 +135,7 @@ function toResult(feature: PhotonFeature): GeocodeResult[] {
   if (typeof lng !== 'number' || typeof lat !== 'number') return [];
 
   const p = feature.properties ?? {};
-  const { tier, label } = classifyFeature({
+  const { tier, label, placeRank } = classifyFeature({
     type: p.type,
     osmKey: p.osm_key,
     osmValue: p.osm_value,
@@ -151,6 +168,7 @@ function toResult(feature: PhotonFeature): GeocodeResult[] {
       lat,
       kind: label,
       tier,
+      placeRank,
     },
   ];
 }

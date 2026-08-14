@@ -67,6 +67,7 @@ export async function listTrips(db: Database, context: SessionContext) {
       shareSlug: trips.shareSlug,
       version: trips.version,
       updatedAt: trips.updatedAt,
+      pinnedAt: trips.pinnedAt,
       // count() of the joined id ignores the NULL row a stopless trip produces.
       stopCount: sql<number>`count(${stops.id})::int`,
     })
@@ -74,7 +75,10 @@ export async function listTrips(db: Database, context: SessionContext) {
     .leftJoin(stops, eq(stops.tripId, trips.id))
     .where(ownedBy(context))
     .groupBy(trips.id)
-    .orderBy(desc(trips.updatedAt));
+    // Pinned first. `nulls last` is required: in Postgres, DESC puts NULLs
+    // first by default, which would sort every unpinned trip above the pinned
+    // ones — the exact opposite of the feature.
+    .orderBy(sql`${trips.pinnedAt} desc nulls last`, desc(trips.updatedAt));
 }
 
 export async function getOwnedTrip(
@@ -128,7 +132,12 @@ export async function patchTrip(
   db: Database,
   tripId: string,
   context: SessionContext,
-  input: { title?: string; defaultProfile?: TravelProfile; version: number },
+  input: {
+    title?: string;
+    defaultProfile?: TravelProfile;
+    pinned?: boolean;
+    version: number;
+  },
 ): Promise<PatchTripResult> {
   const existing = await getOwnedTrip(db, tripId, context);
   if (!existing) return { status: 'not_found' };
@@ -143,8 +152,22 @@ export async function patchTrip(
       ...(input.defaultProfile !== undefined
         ? { defaultProfile: input.defaultProfile }
         : {}),
+      ...(input.pinned !== undefined
+        ? { pinnedAt: input.pinned ? sql`now()` : null }
+        : {}),
       version: sql`${trips.version} + 1`,
-      updatedAt: sql`now()`,
+      /*
+       * Only a content change touches `updatedAt`.
+       *
+       * Pinning is a presentation choice, not an edit. Bumping the timestamp
+       * for it meant unpinning left the trip sitting at the top of the
+       * recency-ordered list instead of returning to where it belonged — the
+       * pin looked like it had not been removed. `version` still increments,
+       * because that guards concurrent writes regardless of what changed.
+       */
+      ...(input.title !== undefined || input.defaultProfile !== undefined
+        ? { updatedAt: sql`now()` }
+        : {}),
     })
     .where(and(eq(trips.id, tripId), eq(trips.version, input.version)))
     .returning();

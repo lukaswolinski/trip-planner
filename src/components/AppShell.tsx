@@ -132,9 +132,40 @@ export default function AppShell({ trips, claimed, email, children }: Props) {
   const allTrips = [...optimistic.filter((t) => !serverIds.has(t.id)), ...trips];
 
   const needle = filter.trim().toLowerCase();
-  const visible = needle
+  const matching = needle
     ? allTrips.filter((trip) => trip.title.toLowerCase().includes(needle))
     : allTrips;
+
+  /*
+   * Sorted client-side as well as in SQL. The server already returns pinned
+   * first, but an optimistically-added trip is prepended locally and a pin
+   * toggle updates local state before the refresh lands — without this the row
+   * would visibly sit in the wrong place until the server caught up.
+   */
+  const visible = [...matching].sort((a, b) => {
+    if (!a.pinnedAt !== !b.pinnedAt) return a.pinnedAt ? -1 : 1;
+    if (a.pinnedAt && b.pinnedAt) return b.pinnedAt.localeCompare(a.pinnedAt);
+    return b.updatedAt.localeCompare(a.updatedAt);
+  });
+
+  async function togglePin(trip: TripListItem) {
+    const pinned = !trip.pinnedAt;
+    // Reflect it immediately; the refresh below replaces this with the truth.
+    setOptimistic((current) => {
+      const others = current.filter((t) => t.id !== trip.id);
+      return [
+        { ...trip, pinnedAt: pinned ? new Date().toISOString() : null },
+        ...others,
+      ];
+    });
+    try {
+      await api.patchTrip(trip.id, { pinned, version: trip.version });
+      router.refresh();
+    } catch {
+      setError(pinned ? 'Could not pin that trip.' : 'Could not unpin that trip.');
+      setOptimistic((current) => current.filter((t) => t.id !== trip.id));
+    }
+  }
 
   async function createTrip() {
     setCreating(true);
@@ -150,6 +181,7 @@ export default function AppShell({ trips, claimed, email, children }: Props) {
           version: trip.version,
           updatedAt: trip.updatedAt,
           stopCount: 0,
+          pinnedAt: null,
         },
         ...current,
       ]);
@@ -310,8 +342,19 @@ export default function AppShell({ trips, claimed, email, children }: Props) {
                               : 'hover:bg-black/5 dark:hover:bg-white/10'
                           }`}
                         >
-                          <span className="block truncate text-sm font-medium">
-                            {trip.title}
+                          <span className="flex items-center gap-1.5">
+                            {trip.pinnedAt ? (
+                              <span
+                                aria-label="Pinned"
+                                title="Pinned to the top"
+                                className="shrink-0 text-[11px] leading-none text-blue-600 dark:text-blue-400"
+                              >
+                                ●
+                              </span>
+                            ) : null}
+                            <span className="block truncate text-sm font-medium">
+                              {trip.title}
+                            </span>
                           </span>
                           <span className="block text-xs text-black/45 dark:text-white/45">
                             {formatStopCount(trip.stopCount)}
@@ -340,6 +383,11 @@ export default function AppShell({ trips, claimed, email, children }: Props) {
                         {menuFor === trip.id ? (
                           <TripRowMenu
                             onClose={() => setMenuFor(null)}
+                            pinned={!!trip.pinnedAt}
+                            onTogglePin={() => {
+                              setMenuFor(null);
+                              void togglePin(trip);
+                            }}
                             onRename={() => {
                               setMenuFor(null);
                               setRenaming({ id: trip.id, value: trip.title });

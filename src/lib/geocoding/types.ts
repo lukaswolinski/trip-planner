@@ -1,4 +1,4 @@
-/** Shared geocoding contract, so the provider is swappable independently of the router. */
+﻿/** Shared geocoding contract, so the provider is swappable independently of the router. */
 
 export interface GeocodeResult {
   name: string;
@@ -7,8 +7,10 @@ export interface GeocodeResult {
   lat: number;
   /** Human label for the feature type, e.g. "City", "County". Shown in the UI. */
   kind: string;
-  /** Sort tier — see lib/geocoding/rank.ts. Lower is a better trip stop. */
+  /** Sort tier â€” see lib/geocoding/rank.ts. Lower is a better trip stop. */
   tier: number;
+  /** Settlement class ordering within a tier: city 0, town 3, village 4. */
+  placeRank: number;
 }
 
 export interface GeocodeOptions {

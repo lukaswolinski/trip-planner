@@ -77,6 +77,12 @@ export const trips = pgTable(
     shareSlug: text('share_slug'),
     sharedAt: timestamp('shared_at', { withTimezone: true }),
     defaultProfile: text('default_profile').notNull().default('driving'),
+    /**
+     * When the trip was pinned; null means unpinned. A timestamp rather than a
+     * boolean so several pinned trips keep a stable, meaningful order (most
+     * recently pinned first) instead of falling back to an arbitrary tiebreak.
+     */
+    pinnedAt: timestamp('pinned_at', { withTimezone: true }),
     /** Optimistic concurrency: a stale writer gets a 409 instead of clobbering. */
     version: integer('version').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
