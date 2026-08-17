@@ -51,6 +51,66 @@ const PATCH_DEBOUNCE_MS = 400;
  */
 const EMPTY_SEGMENTS: readonly (readonly [number, number][])[] = [];
 
+type Panel = 'stops' | 'budget';
+
+/**
+ * One tab.
+ *
+ * Real `role="tab"` semantics with `aria-selected` and `aria-controls`, plus
+ * left/right arrow navigation — that is what screen readers and keyboard users
+ * expect from a tablist, and a row of plain buttons does not provide it.
+ */
+function TabButton({
+  id,
+  label,
+  active,
+  onSelect,
+  count,
+  warn,
+}: {
+  id: Panel;
+  label: string;
+  active: boolean;
+  onSelect: (panel: Panel) => void;
+  count?: number;
+  warn?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      id={`tab-${id}`}
+      aria-selected={active}
+      aria-controls={`panel-${id}`}
+      tabIndex={active ? 0 : -1}
+      onClick={() => onSelect(id)}
+      onKeyDown={(event) => {
+        if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+          event.preventDefault();
+          onSelect(id === 'stops' ? 'budget' : 'stops');
+        }
+      }}
+      className={`relative -mb-px rounded-t-control border-x border-t px-3.5 py-2 text-[13px] font-medium transition-colors ${
+        active
+          ? 'border-line bg-surface text-ink'
+          : 'border-transparent text-ink-muted hover:bg-inset hover:text-ink'
+      }`}
+    >
+      {label}
+      {count !== undefined ? (
+        <span className="tnum ml-1.5 text-ink-faint">{count}</span>
+      ) : null}
+      {warn ? (
+        <span
+          aria-label="Over budget"
+          title="This trip is over budget"
+          className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-danger"
+        />
+      ) : null}
+    </button>
+  );
+}
+
 /** Inline so the page carries no icon dependency. */
 function LinkIcon() {
   return (
@@ -102,6 +162,8 @@ export default function TripEditor({
     name: string;
     from: { lat: number; lng: number };
   } | null>(null);
+  /** Which panel is showing. Local state: it is a view choice, not data. */
+  const [panel, setPanel] = useState<Panel>('stops');
   /** Title editing is draft-while-focused; see the input below. */
   const [titleFocused, setTitleFocused] = useState(false);
   const [titleDraft, setTitleDraft] = useState(initialTrip.title);
@@ -498,19 +560,21 @@ export default function TripEditor({
           </button>
         </header>
 
-        {/* Only this column scrolls, so the map never moves. */}
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          <div className="flex flex-col gap-3">
-            <ClaimBanner claimed={claimed} tripId={trip.id} />
+        {/*
+          Pinned above the tabs: trip-level context that applies to whichever
+          panel is open, so it must not scroll away with the stop list.
+        */}
+        <div className="flex shrink-0 flex-col gap-3 px-4 pt-4">
+          <ClaimBanner claimed={claimed} tripId={trip.id} />
 
-            <TotalsBar
-              summary={summary}
-              unit={unit}
-              stale={recomputing}
-              onToggleUnit={() => setUnit((u) => (u === 'km' ? 'mi' : 'km'))}
-            />
+          <TotalsBar
+            summary={summary}
+            unit={unit}
+            stale={recomputing}
+            onToggleUnit={() => setUnit((u) => (u === 'km' ? 'mi' : 'km'))}
+          />
 
-            {notice ? (
+          {notice ? (
               <div className="flex items-start justify-between gap-3 rounded-control border border-warn-line bg-warn-soft px-3 py-2 text-xs text-ink">
                 <span>{notice}</span>
                 <button
@@ -547,6 +611,45 @@ export default function TripEditor({
               </div>
             ) : null}
 
+          {/*
+            Tabs rather than a collapsible section.
+
+            The problem was distance, not height: on a 13-stop trip the budget
+            sat below every card. Collapsing it would only have made it shorter
+            while leaving it just as far away. Tabs make it one click at any
+            trip length — and budget is a different task from ordering stops,
+            not a detail of it.
+          */}
+          <div role="tablist" aria-label="Trip panels" className="-mb-px flex gap-1">
+            <TabButton
+              id="stops"
+              label="Stops"
+              count={stops.length || undefined}
+              active={panel === 'stops'}
+              onSelect={setPanel}
+            />
+            <TabButton
+              id="budget"
+              label="Budget"
+              active={panel === 'budget'}
+              onSelect={setPanel}
+              // A dot only when it means something: the trip is over budget.
+              warn={
+                budget.remainingCents !== null && budget.remainingCents < 0
+              }
+            />
+          </div>
+        </div>
+
+        {/* Only this region scrolls, so the map and the totals never move. */}
+        <div className="min-h-0 flex-1 overflow-y-auto border-t border-line p-4">
+          <div
+            role="tabpanel"
+            id="panel-stops"
+            aria-labelledby="tab-stops"
+            hidden={panel !== 'stops'}
+            className="flex flex-col gap-3"
+          >
             <StopSearch onPick={addStop} near={searchNear} />
 
             {stops.length === 0 ? (
@@ -584,7 +687,19 @@ export default function TripEditor({
                 slower.
               </p>
             ) : null}
+          </div>
 
+          {/*
+            `hidden` rather than unmounting, so switching tabs keeps the budget
+            form's half-typed values and the stop list's scroll position. It also
+            means dnd-kit is never torn down and rebuilt by a tab change.
+          */}
+          <div
+            role="tabpanel"
+            id="panel-budget"
+            aria-labelledby="tab-budget"
+            hidden={panel !== 'budget'}
+          >
             <BudgetPanel
               tripId={trip.id}
               claimed={claimed}
