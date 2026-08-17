@@ -19,8 +19,8 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { api } from '@/lib/client/api';
-import { formatClock, parseClock } from '@/lib/format';
-import { EmptyState, button, input, inputCompact } from './ui';
+import { EmptyState, button, input } from './ui';
+import TimePicker from './TimePicker';
 import ConfirmDialog from './ConfirmDialog';
 import type { ItineraryItemDto } from '@/types';
 
@@ -41,7 +41,8 @@ interface Props {
 export default function ItineraryPanel({ tripId, stopId, initialItems }: Props) {
   const [items, setItems] = useState<ItineraryItemDto[]>(initialItems);
   const [title, setTitle] = useState('');
-  const [time, setTime] = useState('');
+  /** Minutes from midnight, or null. No longer a string: it cannot be invalid. */
+  const [time, setTime] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<ItineraryItemDto | null>(null);
@@ -55,23 +56,18 @@ export default function ItineraryPanel({ tripId, stopId, initialItems }: Props) 
     const trimmed = title.trim();
     if (trimmed === '' || busy) return;
 
-    // A half-typed time is treated as no time rather than being guessed at.
-    const startMinutes = parseClock(time);
-    if (time.trim() !== '' && startMinutes === null) {
-      setError('Enter a time as 09:30, or leave it blank.');
-      return;
-    }
-
     setBusy(true);
     setError(null);
     try {
+      // `time` is already either a valid minute-of-day or null — the picker
+      // cannot produce anything else, so there is nothing to validate here.
       const { item } = await api.addItineraryItem(tripId, stopId, {
         title: trimmed,
-        startMinutes,
+        startMinutes: time,
       });
       setItems((current) => [...current, item]);
       setTitle('');
-      setTime('');
+      setTime(null);
     } catch {
       setError('Could not add that item.');
     } finally {
@@ -159,19 +155,11 @@ export default function ItineraryPanel({ tripId, stopId, initialItems }: Props) 
             aria-label="Activity"
             className={`${input} min-w-0 flex-1`}
           />
-          <input
+          <TimePicker
             value={time}
-            onChange={(event) => setTime(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                void addItem();
-              }
-            }}
-            placeholder="09:30"
-            aria-label="Time (optional)"
-            inputMode="numeric"
-            className={`${inputCompact} tnum w-20`}
+            onChange={setTime}
+            label="the new activity"
+            className="shrink-0"
           />
           <button
             type="button"
@@ -245,21 +233,6 @@ function ItineraryRow({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.id });
 
-  /*
-   * The time field is a draft while focused, like the trip title.
-   * Round-tripping through minutes on every keystroke would rewrite "9" to
-   * "09:00" mid-typing and move the caret.
-   */
-  const [timeFocused, setTimeFocused] = useState(false);
-  const [timeDraft, setTimeDraft] = useState('');
-
-  const shown =
-    timeFocused
-      ? timeDraft
-      : item.startMinutes === null
-        ? ''
-        : formatClock(item.startMinutes);
-
   return (
     <li
       ref={setNodeRef}
@@ -280,28 +253,11 @@ function ItineraryRow({
         </svg>
       </button>
 
-      <input
-        value={shown}
-        onFocus={() => {
-          setTimeDraft(item.startMinutes === null ? '' : formatClock(item.startMinutes));
-          setTimeFocused(true);
-        }}
-        onChange={(event) => setTimeDraft(event.target.value)}
-        onBlur={(event) => {
-          setTimeFocused(false);
-          const parsed = parseClock(event.target.value);
-          // Blank clears the time; unparseable input is discarded rather than
-          // silently becoming some other time.
-          if (event.target.value.trim() === '') {
-            if (item.startMinutes !== null) onPatch(item, { startMinutes: null });
-          } else if (parsed !== null && parsed !== item.startMinutes) {
-            onPatch(item, { startMinutes: parsed });
-          }
-        }}
-        placeholder="--:--"
-        aria-label={`Time for ${item.title}`}
-        inputMode="numeric"
-        className={`${inputCompact} tnum mt-0.5 w-[4.5rem] shrink-0 text-center`}
+      <TimePicker
+        value={item.startMinutes}
+        onChange={(startMinutes) => onPatch(item, { startMinutes })}
+        label={item.title}
+        className="mt-0.5 shrink-0"
       />
 
       <div className="min-w-0 flex-1">

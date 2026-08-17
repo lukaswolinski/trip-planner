@@ -5,11 +5,12 @@ import { getDb } from '@/lib/db';
 import { getOwnedTrip, listStops } from '@/lib/trips/repository';
 import { listItinerary } from '@/lib/trips/itinerary';
 import { uuidSchema } from '@/lib/validation/schemas';
-import { formatCoordinates } from '@/lib/coords';
-import { formatNights } from '@/lib/format';
+import { ESTIMATE_TOOLTIP, formatDistance, formatEstimate, formatNights } from '@/lib/format';
+import { buildTripSummary, nullRouter } from '@/lib/routing/summary';
+import { toSummaryStops } from '@/lib/routing/service';
+import { createDbLegCache } from '@/lib/routing/cache';
 import TripMap from '@/components/TripMap';
 import ItineraryPanel from '@/components/ItineraryPanel';
-import ListingSection from '@/components/ListingSection';
 import { microLabel } from '@/components/ui';
 import type { ItineraryItemDto } from '@/types';
 
@@ -50,6 +51,40 @@ export default async function DestinationPage({
   const previous = stops[index - 1];
   const next = stops[index + 1];
 
+  /*
+   * The leg you arrived on, read from the cache ONLY.
+   *
+   * `nullRouter` plus `allowMissingLegs` means this page never triggers a
+   * provider request: opening a stop's detail view should not spend a routing
+   * call or make the page wait on one. If the figure has not been computed yet
+   * the trip page will compute it, and this simply says so.
+   */
+  let arrival: { distanceM: number; durationS: number; isFlight: boolean } | null = null;
+  if (previous) {
+    try {
+      const cached = await buildTripSummary(
+        toSummaryStops(stops),
+        (trip.defaultProfile as 'driving' | 'walking') ?? 'driving',
+        {
+          cache: createDbLegCache(db),
+          router: nullRouter,
+          allowMissingLegs: true,
+        },
+      );
+      const leg = cached.legs.find((l) => l.toStopId === stop.id);
+      if (leg) {
+        arrival = {
+          distanceM: leg.distanceM,
+          durationS: leg.durationS,
+          isFlight: leg.isFlight,
+        };
+      }
+    } catch (error) {
+      // A missing figure must not take the page down.
+      console.error('[page] destination arrival leg', error);
+    }
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-bg">
       <header className="sticky top-0 z-10 flex shrink-0 items-center gap-3 border-b border-line bg-surface/85 px-5 py-3 backdrop-blur">
@@ -73,22 +108,45 @@ export default async function DestinationPage({
             <section className="rounded-card border border-line bg-surface p-4">
               <h2 className="text-[15px] font-semibold">Overview</h2>
               <dl className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-2">
-                <div>
-                  <dt className={microLabel}>Coordinates</dt>
-                  <dd className="tnum mt-0.5 text-sm">
-                    {formatCoordinates(stop.lat, stop.lng)}
-                  </dd>
-                </div>
+                {/*
+                  Coordinates and the raw address are gone: they are how the app
+                  finds the place, not anything you need while planning. The
+                  journey in is what you actually want to know on arrival.
+                */}
+                {previous ? (
+                  <div>
+                    <dt className={microLabel}>
+                      {arrival?.isFlight ? 'Flight from' : 'Travel from'}{' '}
+                      {previous.name}
+                    </dt>
+                    <dd className="tnum mt-0.5 text-sm">
+                      {arrival === null ? (
+                        <span className="text-ink-faint">Not calculated yet</span>
+                      ) : arrival.isFlight ? (
+                        // No duration for a flight: we know the distance exactly
+                        // and the travel time not at all.
+                        <>{formatDistance(arrival.distanceM)} direct · no drive time</>
+                      ) : (
+                        <>
+                          {formatDistance(arrival.distanceM)}
+                          <span className="px-1 text-ink-faint">·</span>
+                          <span title={ESTIMATE_TOOLTIP}>
+                            {formatEstimate(arrival.durationS)}
+                          </span>
+                        </>
+                      )}
+                    </dd>
+                  </div>
+                ) : (
+                  <div>
+                    <dt className={microLabel}>Position</dt>
+                    <dd className="mt-0.5 text-sm">First stop of the trip</dd>
+                  </div>
+                )}
                 <div>
                   <dt className={microLabel}>Nights</dt>
                   <dd className="mt-0.5 text-sm">{formatNights(stop.days)}</dd>
                 </div>
-                {stop.address && stop.address !== stop.name ? (
-                  <div className="sm:col-span-2">
-                    <dt className={microLabel}>Address</dt>
-                    <dd className="mt-0.5 text-sm">{stop.address}</dd>
-                  </div>
-                ) : null}
                 <div className="sm:col-span-2">
                   <dt className={microLabel}>Notes</dt>
                   <dd className="mt-0.5 whitespace-pre-wrap text-sm">
@@ -104,30 +162,18 @@ export default async function DestinationPage({
               </dl>
             </section>
 
-            <ItineraryPanel tripId={id} stopId={stopId} initialItems={itemDtos} />
+            {/*
+              Accommodation, activities, restaurants and trails are gone until
+              they have something to show.
 
-            <ListingSection
-              title="Accommodation"
-              hint="Hotels and hostels near this stop"
-              priceHint="from · per night"
-              partner
-            />
-            <ListingSection
-              title="Activities and attractions"
-              hint="Things to do, tours and sights nearby"
-              priceHint="from · per person"
-              partner
-            />
-            <ListingSection
-              title="Restaurants"
-              hint="Places to eat near this stop"
-              priceHint="price range"
-            />
-            <ListingSection
-              title="Trails"
-              hint="Walking and hiking routes starting nearby"
-              priceHint="distance · ascent"
-            />
+              Four "coming soon" boxes on every stop made a working app look
+              broken, and they were actively misleading at a remote trailhead
+              where there genuinely are no hotels or restaurants nearby — an
+              empty section there is a fact about the place, not a fact about
+              the app. When a data source is wired up, each section renders only
+              if that source returns results for these coordinates.
+            */}
+            <ItineraryPanel tripId={id} stopId={stopId} initialItems={itemDtos} />
           </div>
 
           <aside className="flex flex-col gap-5 lg:sticky lg:top-20 lg:self-start">
